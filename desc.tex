@@ -1,0 +1,419 @@
+\documentclass{article}
+\setlength{\topmargin}{-.7in}
+\setlength{\textwidth}{6.9in}
+\setlength{\textheight}{9.5in}
+\setlength{\oddsidemargin}{-.16in}
+\setlength{\evensidemargin}{-.16in}
+\newcommand{\comment}[1]{}
+\begin{document}
+
+\newcommand{\LB}{$[$}
+\newcommand{\RB}{$]\;$}
+\newcommand{\LP}{$($}
+\newcommand{\RP}{$)\;$}
+
+\begin{center}
+{\Large \bf CSE 504  Project}\\[0.1in]
+\end{center}
+%\section{Description}
+In this project, you will complete the rest of the E-{}- compiler. Your
+target language will be an abstract assembly language that is
+further described in Section~\ref{targetlang}. It is a 32-bit
+machine that has the following characteristics:
+\begin{itemize}
+\item 4 giga words of memory, where each word can store any value of
+  primitive type such as float or int
+\item a large number of integer and floating point registers,
+\item supports move operations from memory to registers and vice-versa,
+\item supports conditional and unconditional branches (both direct and
+  indirect branches), and arithmetic/logical operations (but not
+  call/return),
+\item supports an operation to fetch the next event
+\item requires all operands to be in registers (except for move operations).
+\end{itemize}
+%
+I am providing you the assembler to convert your abstract assembly code
+into machine code. It works by translating assembly code into C, and then
+uses gcc to translate this C-code into an executable. (Although this may
+seem convoluted, it was easy to implement and works well.)
+
+This assignment should be completed in groups of 3 to 4 students.
+You will start with your code for the typechecker assignment, and
+add methods to perform the following tasks:
+\begin{description}
+\item[Type-checking:] Implement a type-checker for E--. A description of
+  the type checker and sample tests are provided to you. While the tests are
+  designed to be helpful to you, you need not try to match the exact outputs
+  shown in the sample output file; but use the sample outputs to ensure
+  that your type checker works correctly.
+\item[Memory allocation:] Allocate storage for global and local variables,
+   as well as temporaries needed. 
+\item[Implementing functions:] Implement procedure calls and returns,
+as well as parameter passing.
+\item[Compilation of event-matching:] You can see that E-- uses patterns
+on events that look very much like regular expressions. You need to 
+compile these patterns into code for performing these pattern matches.
+\item[(Intermediate) code generation:] Generate abstract machine code. 
+\item[Optimization:] I expect you to implement some optimizations, although
+the exact ones are up to you. 
+\end{description}
+%
+If you implement pattern matching or optimization, then those components
+will be evaluated on the basis of how complete those features are, as
+well as the speed of execution.
+
+We will make some minor modifications to E-- before proceeding on this
+assignment. The most important one will be the inclusion of a while loop,
+and a break statement. While loops could be nested, and can contain
+break statements of the form ``break $n$'' that cause control to be
+transferred to the statement immediately following the end of the
+$n$th enclosing while-loop. 
+
+\section{Timeline}
+%
+This project will be done by groups of 3 to 4 students. Here are the
+deadlines:
+\begin{description}
+\item[10/24:] Project posted.
+\item[10/28:] Project groups to be finalized, and the names sent to the TA.
+\item[11/14:] Interim report due. By this date, you should have completed
+  the detailed design of your entire project. You should also have finished
+  implementing type checking and memory allocation,
+\item[12/10:] Final report and project demos due. The demos may be scheduled in
+  the following week.
+\end{description}
+
+\section{Grading}
+%
+Unlike the programming assignments you have been working on so far, where
+the tasks were specified in great detail and with specificity, a project is
+much more ``free form.'' I expect to see significant variation between
+groups in terms of what they deliver, and how well (and fast) it works. 
+
+Groups are expected to show a significant deal of imagination and creativity
+in their projects. I will award up to 10 bonus points for groups that
+surpass my expectations in this regard.
+
+Finally, a description of type-checker assignment from previous offerings
+of the course is being provided to you in the hope that it will be
+helpful to you. As mentioned earlier, you need not follow it exactly,
+but do make sure that your type checker is implemented correctly.
+
+We will follow the same submission requirements that we have been following so
+far for the assignments. The group leader will submit the project implementation
+on the Blackboard. He/she will identify the names and the IDs of the project
+members during submission. Project members do not need to submit anything to the
+Blackboard.
+
+In addition to submitting your project on Blackboard, you
+will need to give a demo. Your final grade will depend
+on both. 
+
+\section{Target Machine} \label{targetlang}
+%
+The intermediate code is intended to model a very simple instruction set.
+Complete information about the instruction set can be obtained from the source
+code files for the assembler. In particular, note that each icode instruction is
+translated by the assembler into a macro with the same name. The definitions of
+these macros appear in \verb+E--_RT.c+, and should provide you a clear
+understanding of the instruction set semantics.
+
+Icode supports 1000 integer registers (R000 to R999) and 1000 floating point
+registers (F000 to F999). 
+
+Icode memory starts at address zero, and goes on to a maximum address specified
+as a command-line option to the C-program generated by the assembler. (The
+default memory size is 1M words.) Memory is word-addressed, not byte-addressed.
+This memory is represented as an array in the C-program. Guard zones are set up
+on either side of the array to catch out-of-bounds accesses (which will trigger
+a memory exception). To simplify the organization of memory, we make the
+assumption that \verb+sizeof(int) == sizeof(float)+. This enables integers and
+floating point numbers to be both stored in one memory word.
+
+Execution of icode starts at the first instruction in the icode file, and
+execution is stopped when control flows past the last instruction in the file.
+
+The instructions can be divided into the following categories. In all cases,
+destination operands are listed following the source operands. Any instruction
+can have a label.
+%
+\begin{itemize}
+\item {\em integer arithmetic and bit operations:} includes ADD, SUB, DIV,
+  MUL, MOD, NEG, AND, OR and XOR. The last 3 operations are bit-wise
+  operations, applying the specified boolean operation on corresponding
+  bits of two integer operands. These operations have two source operands
+  (just one source in the case of NEG) that can either be a value or a
+  register, and a destination operand that must be a register.
+%
+\item {\em floating point arithmetic:}
+      includes FADD, FSUB, FDIV, FMUL and FNEG. They have two source operands
+      (one in the case of FNEG) that can be values or registers, and a 
+      destination operand that must be a register.
+%
+\item {\em integer relational operations:} includes GT and GE that treat their
+      two operands as signed integers; UGT and UGE that operate on unsigned 
+      integers; EQ and NE that operate on integers regardless of size; 
+      All operands can be values or registers.
+
+      NOTE: Relational operators are not stand-alone instructions, but 
+      instead, appear as part of a conditional jump instruction.
+%
+\item {\em floating point relational operations:} includes FGT, FGE, FEQ and FNE 
+      that operate on floating point operands (values or registers).
+%
+\item {\em print instructions:} include PRTI, PRTS, and PRTF that each take a 
+      a single operand. In the case of PRTI, this operand represents the 
+      integer value to be printed, or the register that needs to be printed. 
+      PRTF is similar, except that it prints a floating point operand.
+      In the case of PRTS, the operand is a string constant (enclosed within
+      double quotes) or a register containing a string constant, i.e., the
+      register was previously initialized by a \verb+MOVS <string_constant> <reg>+. 
+%
+\item {\em jump instructions:}
+\begin{itemize} 
+  \item {\em unconditional jump:} \verb+JMP <loc>+, where \verb+<loc>+ is a label. 
+  \item {\em conditional jump:} \verb+JMPC <cond> <loc>+, where \verb+<cond>+ is a relational
+         operator with parameters. Example: \verb+JMPC GE R000 R001 <loc>+
+  \item {\em indirect jump:} \verb+JMPI <reg>+, where \verb+<reg>+ is an integer register that has previously been initialized with a label value using a MOVL
+         instruction.
+  \item {\em conditional indirect jump:} Example \verb+JMPCI FGE F001 1.0 R010+.
+\end{itemize}
+%
+\item {\em data movement instructions: }
+  \begin{itemize}
+    \item {\em move label to a register:} \verb+MOVL <label> <intreg>+
+    \item {\em move string to register:}  \verb+MOVS <stringConstant> <intreg>+
+
+    \item {\em move integer to register:} \verb+MOVI <valueOrReg> <intreg>+
+    \item {\em move float to register:}   \verb+MOVF <valueOrReg> <freg>+
+
+    \item {\em move int to float reg:}    \verb+MOVIF <intreg> <freg>+
+    \item {\em move float to int reg:}    \verb+MOVIF <freg> <intreg>+
+
+    \item {\em load int reg from mem:}    \verb+LDI <reg> <valuOrReg>+
+    \item {\em load float reg from mem:}  \verb+LDF <reg> <valuOrReg>+
+    \item {\em store int reg to mem:}     \verb+STI <reg> <valuOrReg>+
+    \item {\em store float reg to mem:}   \verb+STF <reg> <valuOrReg>+
+  \end{itemize}
+%
+\item {\em input instruction:} (for reading input data)
+      \verb+IN <reg>+ reads a single byte from input stream and stores it into
+         the specified register. A negative return value indicates an
+         error, with the semantics the same as that of getc.
+      \verb+INI <reg>+, \verb+INF <reg>+ read an integer (or floating point number) into the 
+         specified register. Aborts execution if any errors are encountered.
+\end{itemize}
+
+\section{Event Matching}
+%
+In a full implementation of the E-{}- language, event matching should be
+implemented using one of the direct DFA construction techniques: either
+the one based on the concept of derivatives discussed in class, or the
+technique described in your textbook. Of course, neither of these
+algorithms handle event parameters. You can refer to Section 5 of the
+paper available at {\tt
+  http://seclab.cs.sunysb.edu/seclab/pubs/usenix99.pdf} to understand how
+event arguments can be handled. (Note that there are some notational
+differences: the paper uses ``;'', ``$||$'' and ``$*$'' in the places of
+``\verb+:+'', ``\verb+\/+'' and ``\verb+**+''. The paper uses the term
+``REE'' to refer to these event patterns, and NEFA to the automata
+constructed for matching these patterns.)
+
+As mentioned before, you are not required to implement event
+patterns in this assignment. However, you may decide that you
+want to implement it any way. (If you do this, then you can
+skip some other component of E-{}- implementation, specifically,
+the implementation of functions and parameter passing. Moreover,
+you will not need to implement event arguments.)
+
+Events will be input using the IN instruction in your assembly. You can
+assume that, for the purposes of this project, all event names will have
+only a single character, so it will be easy to input event names using the
+IN instruction that returns just a single byte. (This limits us to a
+maximum of 53 events.) For this assignment, we will restrict
+ourselves to integer and floating point event arguments. Since you have
+the declaration of events, which specifies the number and types of event
+arguments, you should be able to use an appropriate number of IN
+operations to input event arguments and convert them into integers or
+floating point numbers. For instance, given the following declaration
+
+\begin{verbatim}
+event a(int x1, float x2)
+\end{verbatim}
+
+the input
+\begin{verbatim}
+aK\0\0\0\0\00AaP\0\0\0\0\0@A
+\end{verbatim}
+will denote a sequence of two events \verb+a(75,11.0),a(80,12.0)+. (Note
+that \verb+\0+ denotes a null character.) Note that the input
+representation reflects how integers and floating point numbers are
+represented internally. For instance, an integer is represented using
+4-bytes, with the first byte representing the least significant byte of
+the integer. A similar observation applies to floating point numbers,
+except that their internal representation is a bit more complex. The above
+event information can be read using the following icode:
+
+\begin{verbatim}
+IN R100 // Read event name
+....    // Decide how many parameters to read, and their types
+INI R101 // Read the integer parameter
+INF F101 // Read the floating point parameter
+\end{verbatim}
+
+Note that \verb+IN+ behaves differently from \verb+INI+ and \verb+INF+ 
+on errors: \verb+IN+ will return a negative value to denote input
+errors or end-of-file. The other two instructions will simply abort the
+program with an error message.
+%
+\section{Project Path}
+%
+Most of your implementation effort in this assignment will be concentrated
+in two functions that you add to subclasses of AstNode and SymTabEntry,
+namely, \verb+memAlloc+ and \verb+codeGen+. The former function is
+responsible for allocating memory: it will traverse the program to identify
+global variables and associate them with memory locations where they will
+be stored. The allocator will also need to determine the offsets on
+the activation records for parameters and local variables. Finally,
+it will need to compute the number of temporary variables needed,
+and allocate them. (Temporary variables need to be registers or local
+variables. If you use registers, then make sure that you do this only
+if you can bound the number of registers needed --- for instance, if you
+have an expression that contained a few thousand operators, even 1000
+registers would not be enough.)
+
+Assembly code will be generated by the \verb+codeGen+ function.
+
+You will need to construct appropriate test cases to test your
+code. Some of the key features that you should test are:
+\begin{itemize}
+\item type checking: make sure that typing errors and coercions are handled
+  correctly, and that implicit and explicit typings are handled.
+\item event pattern matching, if implemented. Make sure that you
+  test patterns that contain nontrivial combinations of closure,
+  sequencing, and alternation operations.
+\item function calls and returns. You should ensure that the code
+  works with different types and numbers of parameters. You should
+  also make sure that recursion works correctly.
+\item if-then-else, loops and break statements.
+\item large expressions that test your technique for 
+  allocating and managing temporaries
+\end{itemize}
+
+In addition to submitting your project on Blackboard, you
+will need to give a demo. Your final grade will depend
+on both. 
+%
+\section{Example program in assembly code}
+%
+\small
+\begin{verbatim}
+JMP begin
+// Test function
+prt3: ADD R900 1 R901
+LDI R901 R050 // Return address now in R050
+ADD R901 1 R901
+LDF R901 F051 // param 1
+ADD R901 1 R901
+LDI R901 R052 // param 2
+ADD R901 1 R901
+LDF R901 F053 // param 3
+ADD R901 1 R901
+LDI R901 R054 // param 4
+PRTS R054
+PRTF F053
+PRTS "*"
+PRTI R052
+PRTS "="
+PRTF F051
+PRTS "\n"
+ADD R900 5 R900
+JMPI R050
+// 
+// Here is where the main program starts
+//
+// Basic integer operations
+begin: MOVI 1036 R000
+MOVI 1172 R001
+MOVI 1169 R002
+SUB  R001 R000 R003
+SUB  R001 R002 R004
+ADD  R004 R003 R005
+MUL  R003 R004 R006
+DIV  R006 R004 R007
+MOD  R001 R000 R008
+NEG  R008 R008
+// Basic FP operations
+MOVF 1.036 F000
+MOVF 1.172 F001
+MOVF 1.169 F002
+FSUB F001 F000 F003
+FSUB F001 F002 F004
+FADD F004 F003 F005
+FMUL F003 F004 F006
+FDIV F006 F004 F007
+FNEG F007 F007
+// Basic logical operations
+MOVI 1036 R000
+MOVI 1048 R001
+MOVI 1052 R002
+OR  R001 R000 R003
+AND R001 R002 R004
+XOR R001 R002 R004
+// A simple loop
+IN R010
+ADD R010 1 R010
+SUB R010 1 R020
+IN R021
+MOVIF R021 F022
+FDIV F022 100.0 F022
+IN R021
+MOVIF R021 F021
+FADD F021 F022 F021
+MOVF 0.0 F011
+L1: SUB  R010 1 R010
+JMPC GE 0 R010 L2
+FADD F021 F011 F011
+JMP L1
+// A simple function call
+L2: PRTF F011
+PRTS "\n"
+MOVI 10000 R900 // init SP
+MOVS "Computed using loop that " R022
+STI R022 R900
+SUB R900 1 R900 // pushed param 4
+STF F021 R900
+SUB R900 1 R900 // pushed param 3
+STI R020 R900
+SUB R900 1 R900 // pushed param 2
+STF F011 R900
+SUB R900 1 R900 // pushed param 1
+MOVL L3 R025
+STI R025 R900
+SUB R900 1 R900 // pushed return addr
+JMP prt3
+L3: PRTI R900
+PRTS "\n"
+// Input two events: first arg of event is int, second is float
+IN  R201
+PRTI R201
+PRTS "("
+INI R200
+PRTI R200
+PRTS ", "
+INF F200
+PRTF F200
+PRTS ")\n"
+IN  R201
+PRTI R201
+PRTS "("
+INI R200
+PRTI R200
+PRTS ", "
+INF F200
+PRTF F200
+PRTS ")\n"
+PRTS "\n***DONE***\n"
+\end{verbatim}
+
+\end{document}

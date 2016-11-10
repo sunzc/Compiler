@@ -1,0 +1,11 @@
+demo
+*.o
+*.swp
+*.out
+E--_parser.C
+*.output
+tags
+demo_output
+sample_output
+test/demo*
+diff_res

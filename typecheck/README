@@ -1,0 +1,7 @@
+This directory contains the description of type checking. It also includes the
+C++ code for the lexer, which you _can_ use, if you decide not to use your own
+lexer. Similarly, you can choose to use E--.tab.h.
+
+There is a test subdirectory that contains test inputs and the corresponding
+outputs. These tests are provided to be helpful. But it is not necessary to
+match your outputs exactly.
