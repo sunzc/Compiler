@@ -185,6 +185,10 @@ OpNode::print(ostream& os, int indent) const {
   else internalErr("Unhandled case in OpNode::print");
 }
 
+void 
+OpNode::typePrint(ostream& os, int indent) const {
+	// TODO
+}
 
 PrimitivePatNode::PrimitivePatNode(EventEntry* ee, vector<VariableEntry*>* params,
 				   ExprNode* c,
@@ -211,6 +215,10 @@ bool PrimitivePatNode::hasAnyOrOther() const{
 		return true;
 	else
 		return false;
+}
+
+void PrimitivePatNode::typePrint(ostream& os, int indent) const{
+	// TODO
 }
 
 void PrimitivePatNode::print(ostream& os, int indent) const{
@@ -290,6 +298,10 @@ bool PatNode::hasAnyOrOther() const{
 	return p1 | p2;
 }
 
+void PatNode::typePrint(ostream& os, int indent) const{
+	// TODO
+}
+
 void PatNode::print(ostream& os, int indent) const{
 	// Add your code
 	os << "(";
@@ -324,6 +336,10 @@ void ValueNode::print(ostream& os, int indent) const{
 	this->value()->print(os, indent);
 }
 
+void ValueNode::typePrint(ostream& os, int indent) const{
+	// TODO
+}
+
 RefExprNode::RefExprNode(string ext, const SymTabEntry* ste,
 	      int line, int column, string file):
 	ExprNode(ExprNode::ExprNodeType::REF_EXPR_NODE, NULL, line, column, file){
@@ -335,6 +351,10 @@ RefExprNode::RefExprNode(string ext, const SymTabEntry* ste,
 void RefExprNode::print(ostream& os, int indent) const{
 	// Add your code
 	os << this->ext();
+}
+
+void RefExprNode::typePrint(ostream& os, int indent) const{
+	// TODO
 }
 
 // TODO don't know what kind of copy here it is, should we copy ext_???
@@ -372,6 +392,10 @@ void InvocationNode::print(ostream& os, int indent) const{
 	os << ")";
 }
 
+void InvocationNode::typePrint(ostream& os, int indent) const{
+	// TODO
+}
+
 IfNode::IfNode(ExprNode* cond, StmtNode* thenStmt, 
 		 StmtNode* elseStmt, int line, int column, string file):
 	StmtNode(StmtNode::StmtNodeKind::IF, line, column, file) {
@@ -380,6 +404,9 @@ IfNode::IfNode(ExprNode* cond, StmtNode* thenStmt,
 	else_ = elseStmt;
 }
 
+void IfNode::typePrint(ostream& os, int indent) const{
+	// TODO
+}
 void IfNode::print(ostream& os, int indent) const{
 	// Add your code
 	prtSpace(os, indent);
@@ -428,6 +455,10 @@ RuleNode::RuleNode(BlockEntry *re, BasePatNode* pat, StmtNode* reaction,
 	reaction_ = reaction;
 }
 
+void RuleNode::typePrint(ostream& os, int indent) const{
+	// TODO
+}
+
 void RuleNode::print(ostream& os, int indent) const{
 	// Add your code
 	prtSpace(os, indent);
@@ -452,6 +483,10 @@ void  CompoundStmtNode::printWithoutBraces(ostream& os, int indent) const{
 				(*it)->print(os, indent);
 		}
 	}
+}
+
+void  CompoundStmtNode::typePrint(ostream& os, int indent) const{
+	// TODO
 }
 
 void  CompoundStmtNode::print(ostream& os, int indent) const{

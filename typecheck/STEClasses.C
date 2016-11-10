@@ -2,6 +2,11 @@
 #include "Value.h"
 #include "ParserUtil.h"
 
+void GlobalEntry::typePrint(ostream& out, int indent) const
+{
+	// TODO
+}
+
 void GlobalEntry::print(ostream& out, int indent) const
 {
 	// Add your code
@@ -43,6 +48,9 @@ void GlobalEntry::print(ostream& out, int indent) const
 	out<<endl;
 }
 
+void EventEntry::typePrint(ostream& out, int indent) const {
+	// TODO
+}
 void EventEntry::print(ostream& out, int indent) const
 {
 	// Add your code
@@ -71,6 +79,11 @@ VariableEntry::VariableEntry(const VariableEntry &v):
 	initVal_ = (ExprNode *)v.initVal();
 }
 
+void VariableEntry::typePrint(ostream& out, int indent) const
+{
+	// TODO
+}
+
 void VariableEntry::print(ostream& out, int indent) const
 {
 	// Add your code
@@ -83,8 +96,35 @@ void VariableEntry::print(ostream& out, int indent) const
 	}
 }
 
+const Type* VariableEntry::typeCheck() {
+	const Type *type;
+	const Type* initValType;
+	ExprNode *exp;
+
+	type = this->type();
+	exp = this->initVal();
+	if (exp != NULL) {
+		initValType = exp->typeCheck();
+		if (type == NULL || initValType == NULL || !(type->isSubType(initValType))) {
+			// TODO handle type error here! However, do not propagate type error, return type.
+			errMsg("XXX");
+		}
+	}
+
+	return type;
+}
+
 void BlockEntry::print(ostream& os, int indent) const{
 	// Add your code
+}
+
+void BlockEntry::typePrint(ostream& os, int indent) const{
+	// Add your code
+	// TODO
+}
+
+void ClassEntry::typePrint(ostream& os, int indent) const{
+	// TODO
 }
 
 void ClassEntry::print(ostream& os, int indent) const{
@@ -95,6 +135,10 @@ void ClassEntry::print(ostream& os, int indent) const{
 	os << this->name();
 	os << ";";
 	os << endl;
+}
+
+void FunctionEntry::typePrint(ostream& os, int indent) const{
+	// TODO
 }
 
 void FunctionEntry::print(ostream& os, int indent) const{

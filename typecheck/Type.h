@@ -131,6 +131,11 @@ class Type {
 	  retType_ = t;
     else errMsg("Type::retType(Type *) called when type = " + name());
   };
+  bool isSubType(const Type* t) const {
+	// TODO
+
+	return true;
+  }
 
   void print(ostream &os, int indent=0) const;
 };

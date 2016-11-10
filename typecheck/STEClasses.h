@@ -32,6 +32,7 @@ class GlobalEntry: public SymTabEntry {
   void addRule(RuleNode* re) { rules_.push_back(re);};
 
   void print(ostream&, int indent=0) const;
+  void typePrint(ostream&, int indent=0) const;
 
  private:
   vector<RuleNode*> rules_;
@@ -43,6 +44,7 @@ class BlockEntry: public SymTabEntry {
     SymTabEntry(name, SymTabEntry::Kind::BLOCK_KIND, line, column, file, (Type*)&Type::voidType) {};
   ~BlockEntry() {};
   void print(ostream& out, int indent=0) const; 
+  void typePrint(ostream& out, int indent=0) const; 
 };
 
 class RuleBlockEntry: public BlockEntry {
@@ -82,6 +84,8 @@ class VariableEntry: public SymTabEntry {
   void initVal(ExprNode *init) { initVal_ = init;};
 
   void print(ostream& os, int indent=0) const;
+  void typePrint(ostream& os, int indent=0) const;
+  const Type* typeCheck();
 
  private:
   VarKind vkind_;
@@ -96,6 +100,7 @@ class ClassEntry: public SymTabEntry {
   ~ClassEntry() {};
 
   void print(ostream& os, int indent) const;
+  void typePrint(ostream& os, int indent) const;
 };
 
 class FunctionEntry: public SymTabEntry {
@@ -112,6 +117,7 @@ class FunctionEntry: public SymTabEntry {
   void body(CompoundStmtNode* n) { body_ = n;};
 
   void print(ostream& os, int indent) const;
+  void typePrint(ostream& os, int indent) const;
 
  private:
   CompoundStmtNode* body_;
@@ -124,6 +130,7 @@ class EventEntry: public SymTabEntry {
   ~EventEntry() {};
 
   void print(ostream& out, int indent=0) const; 
+  void typePrint(ostream& out, int indent=0) const; 
 };  
 
 #endif
