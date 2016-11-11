@@ -111,6 +111,8 @@ class ExprNode: public AstNode {
   const Type* coercedType() const { return coercedType_; }
   void coercedType(const Type* type) { coercedType_ = type; }
 
+  virtual const Type* typeCheck() {return NULL;};
+
   void print(ostream& os, int indent=0) const=0;
   void typePrint(ostream& os, int indent=0) const=0;
 
@@ -135,6 +137,8 @@ class RefExprNode: public ExprNode {
 
   const SymTabEntry* symTabEntry() const { return sym_;};
   void symTabEntry(const SymTabEntry *ste)  { sym_ = ste;};
+
+  const Type* typeCheck();
 
   void print(ostream& os, int indent=0) const;
   void typePrint(ostream& os, int indent=0) const;
@@ -193,6 +197,7 @@ class OpNode: public ExprNode {
   vector<ExprNode*>* args() 
     { return &arg_; }
 
+  const Type* typeCheck();
   void print(ostream& os, int indent=0) const;  
   void typePrint(ostream& os, int indent=0) const;  
   

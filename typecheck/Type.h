@@ -52,8 +52,7 @@ class Type {
   static bool isInt(TypeTag t) {return ((t == INT) || (t == UINT)); }
   static bool isIntegral(TypeTag t) { return ((t >= BYTE) && (t <= INT));}
   static bool isSigned(TypeTag t) {
-    return ((t==INT) || (t==DOUBLE)); }
-  static bool isUnsigned(TypeTag t) { return (isIntegral(t) && !isSigned(t));}
+    return ((t==INT) || (t==DOUBLE)); } static bool isUnsigned(TypeTag t) { return (isIntegral(t) && !isSigned(t));}
   static bool isFloat(TypeTag t) {return (t==DOUBLE);}
   static bool isPrimitive(TypeTag t) { return ((t >= BOOL) && (t <= DOUBLE));}
   static bool isNative(TypeTag t) { 
@@ -116,7 +115,7 @@ class Type {
     else return retType_;
   };
 
-  void tag(TypeTag t) { tag_ = t; }
+  void tag(TypeTag t) { tag_ = t; };
   void typeDesc(SymTabEntry* ste) {
     if (tag_ == CLASS)
 	  typeDesc_ = ste; 
@@ -132,10 +131,39 @@ class Type {
     else errMsg("Type::retType(Type *) called when type = " + name());
   };
   bool isSubType(const Type* t) const {
-	// TODO
+	TypeTag tag = this->tag();
+	TypeTag pTag = t->tag();
 
-	return true;
-  }
+	if (this->isBool(tag) || this->isString(tag) || tag == CLASS) {
+		if (pTag == tag)
+			return true;
+		else
+			return false;
+	} else if (tag == BYTE) {
+		if (pTag == tag)
+			return true;
+		else
+			return false;
+	} else if (tag == UINT) {
+		if (pTag == UINT || pTag == BYTE)
+			return true;
+		else
+			return false;
+	} else if (tag == INT) {
+		if (this->isIntegral(pTag))
+			return true;
+		else
+			return false;
+	} else if (tag == DOUBLE) {
+		if (this->isNumeric(pTag))
+			return true;
+		else
+			return false;
+	} else if (tag == pTag)
+		return true;
+	else
+		return false;
+  };
 
   void print(ostream &os, int indent=0) const;
 };

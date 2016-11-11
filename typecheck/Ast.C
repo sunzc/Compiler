@@ -148,6 +148,164 @@ OpNode::OpNode(const OpNode &other):
   }
 }
 
+const Type* OpNode::typeCheck() {
+	const Type *type, *ltype, *rtype;
+
+	OpCode opCode = this->opCode();
+	ltype = this->arg(0)->typeCheck();
+	rtype = this->arg(1)->typeCheck();
+
+	switch(opCode) {
+		case OpNode::OpCode::UMINUS:
+			if(!ltype->isSigned(ltype->tag())) {
+				// TODO handle type error here
+				errMsg("type error: expect signed type");
+			}
+			type = ltype;
+			break;
+		case OpNode::OpCode::PLUS:
+		case OpNode::OpCode::MINUS:
+		case OpNode::OpCode::MULT:
+		case OpNode::OpCode::DIV:
+			if (!ltype->isNumeric(ltype->tag()) || !rtype->isNumeric(rtype->tag())) {
+				// TODO handle type error here
+				errMsg("type error: expect numeric type");
+				// TODO should we create a numeric type to avoid propagate of type errors?
+				// maybe we can choose the numeric type and return
+				if (ltype->isNumeric(ltype->tag()))
+					type = ltype;
+				else if (rtype->isNumeric(rtype->tag()))
+					type = rtype;
+				else
+					// type = new Type(Type::TypeTag::INT);
+					type = NULL;
+
+			} else if (ltype->tag() == rtype->tag()) {
+				type = ltype;
+			} else if (ltype->isSubType(rtype) || rtype->isSubType(ltype)) {
+				// type not match, set coerced type here
+				if (ltype->tag() > rtype->tag()) {
+					type = ltype;
+					this->arg(1)->coercedType(type);
+				} else {
+					type = rtype;
+					this->arg(0)->coercedType(type);
+				}
+
+			} else {
+				// TODO
+				errMsg("type error: unexpected type error");
+				// type = new Type(Type::TypeTag::INT);
+				type = NULL;
+			}
+			break;
+		case OpNode::OpCode::BITAND:
+		case OpNode::OpCode::BITOR:
+		case OpNode::OpCode::BITXOR:
+		case OpNode::OpCode::SHL:
+		case OpNode::OpCode::SHR:
+		case OpNode::OpCode::MOD:
+			if ((! ltype->isIntegral(ltype->tag())) || (! rtype->isIntegral(rtype->tag()))) {
+				// TODO handle type error here
+				errMsg("type error: MOD expect two integrals");
+				// TODO should we create a numeric type to avoid propagate of type errors?
+				// maybe we can choose the numeric type and return
+				if (ltype->isIntegral(ltype->tag()))
+					type = ltype;
+				else if (rtype->isIntegral(rtype->tag()))
+					type = rtype;
+				else
+					// type = new Type(Type::TypeTag::INT);
+					type = NULL;
+			} else if (ltype->tag() == rtype->tag()) {
+				type = ltype;
+			} else {
+				// type not match, set coerced type here
+				if (ltype->tag() > rtype->tag()) {
+					type = ltype;
+					this->arg(1)->coercedType(type);
+				} else {
+					type = rtype;
+					this->arg(0)->coercedType(type);
+				}
+			}
+			break;
+
+		case OpNode::OpCode::BITNOT:
+			if (! ltype->isIntegral(ltype->tag())) {
+				// TODO handle type error here
+				errMsg("type error: BITNOT expect integral");
+				// type = new Type(Type::TypeTag::INT);
+				type = NULL;
+			} else {
+				type = ltype;
+			}
+			break;
+
+		case OpNode::OpCode::EQ:
+		case OpNode::OpCode::NE:
+		case OpNode::OpCode::GT:
+		case OpNode::OpCode::LT:
+		case OpNode::OpCode::GE:
+		case OpNode::OpCode::LE:
+			if (!ltype->isNumeric(ltype->tag()) || !rtype->isNumeric(rtype->tag())) {
+				// TODO handle type error here
+				errMsg("type error: expect numeric type");
+
+			} else if (ltype->tag() == rtype->tag()) {
+				// Do nothing
+			} else if (ltype->isSubType(rtype) || rtype->isSubType(ltype)) {
+				// type not match, set coerced type here
+				if (ltype->tag() > rtype->tag()) {
+					this->arg(1)->coercedType(type);
+				} else {
+					this->arg(0)->coercedType(type);
+				}
+			} else {
+				// TODO
+				errMsg("type error: unexpected type error");
+			}
+
+			// return bool type
+			type = new Type(Type::TypeTag::BOOL);
+			break;
+		case OpNode::OpCode::NOT:
+			if (! ltype->isBool(ltype->tag())) {
+				// TODO handle type error here
+				errMsg("type error: NOT expect bool type");
+			}
+			type = new Type(Type::TypeTag::BOOL);
+			break;
+		case OpNode::OpCode::AND:
+		case OpNode::OpCode::OR:
+			if (!ltype->isBool(ltype->tag()) || !rtype->isBool(rtype->tag())) {
+				// TODO handle type error here
+				errMsg("type error: expect bool type");
+			}
+			type = new Type(Type::TypeTag::BOOL);
+			break;
+		case OpNode::OpCode::ASSIGN:
+			if (ltype->tag() == rtype->tag()) {
+				// Do nothing
+			} else if (ltype->isSubType(rtype)) {
+					this->arg(1)->coercedType(ltype);
+			} else {
+				// TODO
+				errMsg("type error: assignment requires compatitable type on the right hand");
+			}
+
+			// return bool type, TODO for assignment, we are required to return true!
+			type = new Type(Type::TypeTag::BOOL);
+			break;
+		default:
+			errMsg("Unsupported OpCode: type check not support here, default action: return ltype");
+			type = ltype;
+			break;
+	}
+
+	return type;
+}
+
 void 
 OpNode::print(ostream& os, int indent) const {
 	int iopcode = static_cast<int>(opCode_);
@@ -351,6 +509,11 @@ RefExprNode::RefExprNode(string ext, const SymTabEntry* ste,
 void RefExprNode::print(ostream& os, int indent) const{
 	// Add your code
 	os << this->ext();
+}
+
+const Type* RefExprNode::typeCheck() {
+	// TODO
+	return this->symTabEntry()->type();
 }
 
 void RefExprNode::typePrint(ostream& os, int indent) const{
