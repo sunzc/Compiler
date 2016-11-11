@@ -730,3 +730,16 @@ void  CompoundStmtNode::print(ostream& os, int indent) const{
 		os << "{};" << endl;
 	}
 }
+
+const Type* ReturnStmtNode::typeCheck() {
+	const Type * funType = fun_->type();
+	const Type * retType = funType->retType();
+	const Type * retValType = expr_->typeCheck();
+
+	if (! retType->isSubType(retValType)) {
+		errMsg("type error: ret value type not match");
+	}
+
+	// TODO ret type should not matter
+	return NULL;
+}

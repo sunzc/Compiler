@@ -408,6 +408,7 @@ class ReturnStmtNode: public StmtNode {
     StmtNode(StmtNode::StmtNodeKind::RETURN,line,column,file) { expr_ = e; fun_ = fe;};
   ~ReturnStmtNode() {};
 
+  const Type* typeCheck();
   void print(ostream& os, int indent) const {
 	os << "return "; 
 	if(expr_ != NULL) expr_->print(os, indent); else os << "NULL";};
