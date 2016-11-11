@@ -1,6 +1,9 @@
 #include "Ast.h"					
 #include "ParserUtil.h"					
 
+// indicate we are in the scope of rule, to allievate the check of assignments
+// where only assignments to global variable is allowed when in rule scope
+bool inRuleScope = false;
 
 AstNode::AstNode(NodeType nt, int line, int column, string file):
   ProgramElem(NULL, line, column, file) {
@@ -294,6 +297,13 @@ const Type* OpNode::typeCheck() {
 				errMsg("type error: assignment requires compatitable type on the right hand");
 			}
 
+			// extra check for assignment if in rule scope
+			if (inRuleScope) {
+				SymTabEntry *ste = stm.lookUp(((RefExprNode *)this->arg(0))->ext());
+				if (ste->kind() != SymTabEntry::Kind::GLOBAL_KIND)
+					errMsg("type error: assignment inside rule can only assign to global variables");
+			}
+
 			// return bool type, TODO for assignment, we are required to return true!
 			type = new Type(Type::TypeTag::BOOL);
 			break;
@@ -359,6 +369,10 @@ PrimitivePatNode::PrimitivePatNode(EventEntry* ee, vector<VariableEntry*>* param
 	condition_ = nullptr;
 }
 
+bool PrimitivePatNode::hasStar() const{
+	return false;
+}
+
 bool PrimitivePatNode::hasSeqOps() const{
 	return false;
 }
@@ -373,6 +387,13 @@ bool PrimitivePatNode::hasAnyOrOther() const{
 		return true;
 	else
 		return false;
+}
+
+const Type* PrimitivePatNode::typeCheck() {
+	// TODO
+	// Acutal parameters to an event will have the types given by the declaration for that event
+	// we don't need to check it now, they will only be read in during runtime.
+	return NULL;
 }
 
 void PrimitivePatNode::typePrint(ostream& os, int indent) const{
@@ -428,6 +449,21 @@ bool PatNode::hasNeg() const{
 	}
 }
 
+bool PatNode::hasStar() const{
+	bool p1 = false, p2 = false;
+
+	if (kind() == BasePatNode::PatNodeKind::STAR)
+		return true;
+	else {
+		if (pat1() != nullptr)
+			p1 = pat1()->hasSeqOps();
+		if (pat2() != nullptr)
+			p2 = pat2()->hasSeqOps();
+
+		return p1 | p2;
+	}
+}
+
 bool PatNode::hasSeqOps() const{
 	bool p1 = false, p2 = false;
 
@@ -454,6 +490,22 @@ bool PatNode::hasAnyOrOther() const{
 		p2 = pat2()->hasAnyOrOther();
 
 	return p1 | p2;
+}
+
+const Type* PatNode::typeCheck() {
+	BasePatNode::PatNodeKind pnk = this->kind();
+	if (pnk == BasePatNode::PatNodeKind::NEG) {
+		this->pat1()->typeCheck();
+		if (this->pat1()->hasSeqOps() || this->pat1()->hasStar())
+			errMsg("type error: no NEG on patterns that have any sequencing operators or star");
+	} else {
+		if (this->pat1() != NULL)
+			this->pat1()->typeCheck();
+		if (this->pat2() != NULL)
+			this->pat2()->typeCheck();
+	}
+
+	return NULL;
 }
 
 void PatNode::typePrint(ostream& os, int indent) const{
@@ -672,6 +724,21 @@ RuleNode::RuleNode(BlockEntry *re, BasePatNode* pat, StmtNode* reaction,
 	rste_ = re;
 	pat_ = pat;
 	reaction_ = reaction;
+}
+
+const Type* RuleNode::typeCheck() {
+	// TODO we use a global variable to indicate we are current in the scope of rule
+	inRuleScope = true;
+
+	// pat check
+	pat_->typeCheck();
+
+	// statement type check
+	reaction_->typeCheck();
+
+	inRuleScope = false;
+
+	return NULL;
 }
 
 void RuleNode::typePrint(ostream& os, int indent) const{

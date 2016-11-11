@@ -291,6 +291,7 @@ class BasePatNode: public AstNode {
 
   virtual bool hasSeqOps() const=0;
   virtual bool hasNeg() const=0;
+  virtual bool hasStar() const=0;
   virtual bool hasAnyOrOther() const=0;
   virtual bool isNegatable() const {
 	return ((!hasSeqOps()) && (!hasNeg())); }
@@ -330,11 +331,12 @@ class PrimitivePatNode: public BasePatNode {
 	return (list<const OpNode*>&)asgs_; }  
   list<OpNode*>& asgs() { return asgs_; }  
 
+  bool hasStar() const;
   bool hasSeqOps() const;
   bool hasNeg() const;
   bool hasAnyOrOther() const;
 
-  //-const Type* typeCheck();
+  const Type* typeCheck();
   void print(ostream& os, int indent=0) const; 
   void typePrint(ostream& os, int indent=0) const; 
 
@@ -365,9 +367,11 @@ class PatNode: public BasePatNode {
   BasePatNode* pat2() { return pat2_; }
 
   bool hasNeg() const;
+  bool hasStar() const;
   bool hasSeqOps() const;
   bool hasAnyOrOther() const;
 
+  const Type* typeCheck();
   void print(ostream& os, int indent=0) const; 
   void typePrint(ostream& os, int indent=0) const; 
 
@@ -519,6 +523,7 @@ class RuleNode: public AstNode {
   const StmtNode* reaction() const { return reaction_; };   
   StmtNode* reaction() { return reaction_; };   
 
+  const Type* typeCheck();
   void print(ostream& os, int indent=0) const;
   void typePrint(ostream& os, int indent) const;
 

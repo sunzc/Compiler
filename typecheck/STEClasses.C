@@ -107,7 +107,7 @@ const Type* VariableEntry::typeCheck() {
 		initValType = exp->typeCheck();
 		if (type == NULL || initValType == NULL || !(type->isSubType(initValType))) {
 			// TODO handle type error here! However, do not propagate type error, return type.
-			errMsg("XXX");
+			errMsg("type error: initialization value not match the variable type");
 		}
 	}
 
