@@ -489,6 +489,14 @@ void PatNode::print(ostream& os, int indent) const{
 	os << ")";
 }
 
+const Type* ValueNode::typeCheck() {
+	const Value* val = this->value();
+	if (val != NULL)
+		return this->type();
+	else
+		return new Type::Type(Type::TypeTag::VOID);
+}
+
 void ValueNode::print(ostream& os, int indent) const{
 	// Add your code
 	this->value()->print(os, indent);

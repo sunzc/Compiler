@@ -219,6 +219,7 @@ class ValueNode: public ExprNode {
   ExprNode* clone() const { return new ValueNode(*this); }
   ~ValueNode() {};
 
+  const Type* typeCheck();
   void print(ostream& os, int indent=0) const;
   void typePrint(ostream& os, int indent=0) const;
 
