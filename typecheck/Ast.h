@@ -249,6 +249,7 @@ class InvocationNode: public ExprNode {
   void param(ExprNode* arg, unsigned int i) 
     { if (params_ != NULL && i < params_->size()) (*params_)[i] = arg;};
 
+  const Type* typeCheck(); 
   void print(ostream& os, int indent=0) const;
   void typePrint(ostream& os, int indent=0) const;
 

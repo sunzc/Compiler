@@ -555,6 +555,36 @@ void InvocationNode::print(ostream& os, int indent) const{
 	os << ")";
 }
 
+const Type* InvocationNode::typeCheck() {
+	// TODO check parametere
+	const SymTabEntry *ste = this->symTabEntry();
+	const Type *ftype = ste->type();
+	const Type *formalType,*actualType;
+	const vector<const Type*>* argTypes = ftype->argTypes();
+	vector<ExprNode*>* params = this->params();
+
+	auto it = argTypes->begin();
+	auto pa = params->begin();
+	for (; (it != argTypes->end()) && (pa != params->end()); ++it, ++pa) {
+		formalType = (*it);
+		actualType = (*pa)->typeCheck();
+		if (formalType == NULL || actualType == NULL)
+			errMsg("type error: function parameter type not match");
+		else if (formalType->tag() == actualType->tag()) {
+			// type match exactly, do nothing
+		} else {
+			if (formalType->isSubType(actualType)) {
+				// coerced type needed
+				(*pa)->coercedType(formalType);
+			} else {
+				errMsg("type error: function parameter type not match");
+			}
+		}
+	}
+
+	return ftype->retType();
+}
+
 void InvocationNode::typePrint(ostream& os, int indent) const{
 	// TODO
 }
