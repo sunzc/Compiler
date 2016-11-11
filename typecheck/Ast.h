@@ -430,6 +430,9 @@ class ExprStmtNode: public StmtNode {
   //AstNode* clone() 
   //  { return new ExprStmtNode(*this); }
 
+  const Type* typeCheck() {
+        return expr_->typeCheck();
+  };
   void print(ostream& os, int indent) const { 
 	if (expr_ != NULL) { expr_->print(os, indent);}};
   void typePrint(ostream& os, int indent) const{
@@ -485,6 +488,7 @@ class IfNode: public StmtNode{
   StmtNode* elseStmt() { return else_;};
   StmtNode* thenStmt() { return then_;};
 
+  const Type* typeCheck();
   void print(ostream& os, int indent) const;
   void typePrint(ostream& os, int indent) const;
 

@@ -605,9 +605,27 @@ IfNode::IfNode(ExprNode* cond, StmtNode* thenStmt,
 	else_ = elseStmt;
 }
 
+const Type* IfNode::typeCheck() {
+	const Type *type;
+	ExprNode *en = this->cond();
+
+	type = en->typeCheck();
+	if (! (type->isBool(type->tag()))) {
+		errMsg("type error: expect bool type value in condition part of if-stmt");
+	}
+
+	then_->typeCheck();
+	if (else_ != NULL)
+		else_->typeCheck();
+
+	// nobody care about the return type here.
+	return NULL;
+}
+
 void IfNode::typePrint(ostream& os, int indent) const{
 	// TODO
 }
+
 void IfNode::print(ostream& os, int indent) const{
 	// Add your code
 	prtSpace(os, indent);
