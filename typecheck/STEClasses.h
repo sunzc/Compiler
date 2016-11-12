@@ -33,6 +33,7 @@ class GlobalEntry: public SymTabEntry {
 
   void print(ostream&, int indent=0) const;
   void typePrint(ostream&, int indent=0) const;
+  const Type* typeCheck();
 
  private:
   vector<RuleNode*> rules_;
@@ -129,6 +130,7 @@ class EventEntry: public SymTabEntry {
     SymTabEntry(name, SymTabEntry::Kind::EVENT_KIND, line,column, file) {};
   ~EventEntry() {};
 
+  const Type* typeCheck();
   void print(ostream& out, int indent=0) const; 
   void typePrint(ostream& out, int indent=0) const; 
 };  

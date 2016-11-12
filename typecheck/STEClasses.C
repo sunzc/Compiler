@@ -2,6 +2,36 @@
 #include "Value.h"
 #include "ParserUtil.h"
 
+const Type* GlobalEntry::typeCheck() {
+	const SymTab *st = this->symTab();
+	if (st != NULL) {
+		auto it = st->begin();
+		while(it != st->end()) {
+			if ((*it)->name().compare("any") == 0) {
+				++it;
+				continue;
+			}
+
+			if ((*it)->kind() == SymTabEntry::Kind::VARIABLE_KIND) {
+				((SymTabEntry *)(*it))->typeCheck();
+			}
+			++it;
+		}
+
+		int i = 0;
+		int size = this->rules().size();
+
+		RuleNode *rn;
+		while (i < size){
+			rn = this->rule(i);
+			rn->typeCheck();
+			i++;
+		}
+	}
+
+	return NULL;
+}
+
 void GlobalEntry::typePrint(ostream& out, int indent) const
 {
 	// TODO
@@ -46,6 +76,12 @@ void GlobalEntry::print(ostream& out, int indent) const
 
 	prtSpace(out, indent);
 	out<<endl;
+}
+
+const Type* EventEntry::typeCheck() {
+	// TODO
+
+	return NULL;
 }
 
 void EventEntry::typePrint(ostream& out, int indent) const {
