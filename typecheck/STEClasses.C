@@ -250,6 +250,8 @@ void ClassEntry::print(ostream& os, int indent) const{
 
 const Type* FunctionEntry::typeCheck() {
 	// TODO
+	if (this->body() != NULL)
+		this->body()->typeCheck();
 	return NULL;
 }
 

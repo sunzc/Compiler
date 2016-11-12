@@ -14,6 +14,8 @@ int offSet;
 extern const OpNode::OpInfo opInfo[];
 #define prt(x) cout << x << endl;
 
+FunctionEntry *currentFuncEntry = NULL;
+
 %}
 
 %union{
@@ -271,6 +273,7 @@ function_decl: function_header TOK_LPAREN formal_param_list TOK_RPAREN TOK_SEMIC
 function_header: type TOK_IDENT {
 	// create function entry
 	$$ = new FunctionEntry(string($2));
+	currentFuncEntry = $$;
 	$$->type($1);
 	// enter scope, TODO what argument should we pass to it?
 	SymTabEntry *ste = new SymTabEntry(string("FUNCTION"), SymTabEntry::Kind::FUNCTION_KIND, 0, 0, "");
@@ -602,7 +605,8 @@ event_pattern: event{
 	//prt("!EventPat");
 
 	if ($2->kind() != BasePatNode::PatNodeKind::PRIMITIVE) {
-		errMsg("Only simple patterns without `.', `*', and `!' operatorscan be negated");
+		//errMsg("Only simple patterns without `.', `*', and `!' operatorscan be negated");
+		$$ = (BasePatNode *)(new PatNode(BasePatNode::PatNodeKind::NEG, $2));
 	} else {
 		$$ = (BasePatNode *)(new PatNode(BasePatNode::PatNodeKind::NEG, $2));
 	}
@@ -666,15 +670,28 @@ event: TOK_ANY {
 			argTypes = t->argTypes();
 			if (argTypes == NULL ) {
 				ok = true;
-			}
-			else if (argTypes->size() != param_list->size()) {
+			} else if (param_list == NULL) {
+				// bad thing, do nothing
+				$$ = new PrimitivePatNode((EventEntry *)ste, NULL);
+			} else if (argTypes->size() != param_list->size()) {
+				// bad thing, we try to return something meaningful
 				errMsg(string($1) + string(": mismatch in the number of arguments"));
+
+				std::vector<string>::iterator it_s = param_list->begin();
+
+				for(std::vector<Type*>::iterator it = argTypes->begin(); it != argTypes->end() && it_s != param_list->end(); ++it, ++it_s) {
+					ve = new VariableEntry(*it_s, VariableEntry::VarKind::PARAM_VAR, *it);
+					it_vel = ve_list->end();
+					ve_list->insert(it_vel, ve);
+					stm.insert(ve);
+				}
+				$$ = new PrimitivePatNode((EventEntry *)ste, ve_list);
 			} else if (argTypes->size() > 0){
 				//cout<<"argT_size:"<<argTypes->size()<<" param_list_size:"<<param_list->size()<<endl;
 				// construct variable entry from param_list, combined with the type info from event
 				std::vector<string>::iterator it_s = param_list->begin();
 				//prt("NormalEvent23");
-				for(std::vector<Type*>::iterator it = argTypes->begin(); it != argTypes->end(); it++, it_s++) {
+				for(std::vector<Type*>::iterator it = argTypes->begin(); it != argTypes->end(); ++it, ++it_s) {
 					ve = new VariableEntry(*it_s, VariableEntry::VarKind::PARAM_VAR, *it);
 					it_vel = ve_list->end();
 					ve_list->insert(it_vel, ve);
@@ -689,8 +706,6 @@ event: TOK_ANY {
 	////prt("NormalEvent3");
 	if (ok) {
 		$$ = new PrimitivePatNode((EventEntry *)ste, ve_list);
-	} else {
-		$$ = nullptr;
 	}
 	//prt("NormalEvent4");
 }
@@ -902,7 +917,7 @@ stmt: TOK_SEMICOLON {
 	// we may need to use global variable to record current function!!
 	SymTabEntry *ste = stm.currentScope();
 	if (ste->kind() == SymTabEntry::Kind::FUNCTION_KIND) {
-		$$ = new ReturnStmtNode($2, nullptr);
+		$$ = new ReturnStmtNode($2, currentFuncEntry);
 	} else {
 		// TODO handle ret not in function scope error!
 		errMsg("Return statement is valid only within a function");

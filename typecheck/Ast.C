@@ -1,5 +1,6 @@
 #include "Ast.h"					
 #include "ParserUtil.h"					
+#define MAXBUF	256
 
 // indicate we are in the scope of rule, to allievate the check of assignments
 // where only assignments to global variable is allowed when in rule scope
@@ -153,17 +154,20 @@ OpNode::OpNode(const OpNode &other):
 
 const Type* OpNode::typeCheck() {
 	const Type *type, *ltype, *rtype;
+	char msg[MAXBUF];
 
 	OpCode opCode = this->opCode();
 	ltype = this->arg(0)->typeCheck();
 	if (this->arg(1) != NULL)
 		rtype = this->arg(1)->typeCheck();
+	int argIdx = 0;
 
 	switch(opCode) {
 		case OpNode::OpCode::UMINUS:
 			if(!ltype->isNumeric(ltype->tag())) {
 				// TODO handle type error here
-				errMsg("type error: expect numeric type");
+				sprintf(msg,"Incompatible type for argument 1 for operator `%s'",opInfo[(int)opCode].name_);
+				errMsg(msg, this->line(), this->column(), this->file().c_str());
 			}
 
 			if (ltype->isIntegral(ltype->tag()))
@@ -177,7 +181,12 @@ const Type* OpNode::typeCheck() {
 		case OpNode::OpCode::DIV:
 			if (!ltype->isNumeric(ltype->tag()) || !rtype->isNumeric(rtype->tag())) {
 				// TODO handle type error here
-				errMsg("type error: expect numeric type");
+				if (!ltype->isNumeric(ltype->tag()))
+					argIdx = 1;
+				else
+					argIdx = 2;
+				sprintf(msg,"Incompatible type for argument %d for operator `%s'",argIdx,opInfo[(int)opCode].name_);
+				errMsg(msg, this->line(), this->column(), this->file().c_str());
 				// TODO should we create a numeric type to avoid propagate of type errors?
 				// maybe we can choose the numeric type and return
 				if (ltype->isNumeric(ltype->tag()))
@@ -185,8 +194,8 @@ const Type* OpNode::typeCheck() {
 				else if (rtype->isNumeric(rtype->tag()))
 					type = rtype;
 				else
-					// type = new Type(Type::TypeTag::INT);
-					type = NULL;
+					type = new Type(Type::TypeTag::INT);
+					//type = NULL;
 
 			} else if (ltype->tag() == rtype->tag()) {
 				type = ltype;
@@ -215,7 +224,12 @@ const Type* OpNode::typeCheck() {
 		case OpNode::OpCode::MOD:
 			if ((! ltype->isIntegral(ltype->tag())) || (! rtype->isIntegral(rtype->tag()))) {
 				// TODO handle type error here
-				errMsg("type error: MOD expect two integrals");
+				if (!ltype->isIntegral(ltype->tag()))
+					argIdx = 1;
+				else
+					argIdx = 2;
+				sprintf(msg,"Incompatible type for argument %d for operator `%s'",argIdx, opInfo[(int)opCode].name_);
+				errMsg(msg, this->line(), this->column(), this->file().c_str());
 				// TODO should we create a numeric type to avoid propagate of type errors?
 				// maybe we can choose the numeric type and return
 				if (ltype->isIntegral(ltype->tag()))
@@ -242,9 +256,10 @@ const Type* OpNode::typeCheck() {
 		case OpNode::OpCode::BITNOT:
 			if (! ltype->isIntegral(ltype->tag())) {
 				// TODO handle type error here
-				errMsg("type error: BITNOT expect integral");
-				// type = new Type(Type::TypeTag::INT);
-				type = NULL;
+				sprintf(msg,"Incompatible type for argument 1 for operator `%s'",opInfo[(int)opCode].name_);
+				errMsg(msg, this->line(), this->column(), this->file().c_str());
+				//type = NULL;
+				type = new Type(Type::TypeTag::INT);
 			} else {
 				type = ltype;
 			}
@@ -258,7 +273,12 @@ const Type* OpNode::typeCheck() {
 		case OpNode::OpCode::LE:
 			if (!ltype->isNumeric(ltype->tag()) || !rtype->isNumeric(rtype->tag())) {
 				// TODO handle type error here
-				errMsg("type error: expect numeric type");
+				if (!ltype->isIntegral(ltype->tag()))
+					argIdx = 1;
+				else
+					argIdx = 2;
+				sprintf(msg,"Incompatible type for argument %d for operator `%s'",argIdx,opInfo[(int)opCode].name_);
+				errMsg(msg, this->line(), this->column(), this->file().c_str());
 
 			} else if (ltype->tag() == rtype->tag()) {
 				// Do nothing
@@ -280,7 +300,8 @@ const Type* OpNode::typeCheck() {
 		case OpNode::OpCode::NOT:
 			if (! ltype->isBool(ltype->tag())) {
 				// TODO handle type error here
-				errMsg("type error: NOT expect bool type");
+				sprintf(msg,"Incompatible type for argument 1 for operator `%s'",opInfo[(int)opCode].name_);
+				errMsg(msg, this->line(), this->column(), this->file().c_str());
 			}
 			type = new Type(Type::TypeTag::BOOL);
 			break;
@@ -288,7 +309,12 @@ const Type* OpNode::typeCheck() {
 		case OpNode::OpCode::OR:
 			if (!ltype->isBool(ltype->tag()) || !rtype->isBool(rtype->tag())) {
 				// TODO handle type error here
-				errMsg("type error: expect bool type");
+				if (!ltype->isBool(ltype->tag()))
+					argIdx = 1;
+				else
+					argIdx = 2;
+				sprintf(msg,"Incompatible type for argument %d for operator `%s'",argIdx,opInfo[(int)opCode].name_);
+				errMsg(msg, this->line(), this->column(), this->file().c_str());
 			}
 			type = new Type(Type::TypeTag::BOOL);
 			break;
@@ -299,7 +325,7 @@ const Type* OpNode::typeCheck() {
 					this->arg(1)->coercedType(ltype);
 			} else {
 				// TODO
-				errMsg("type error: assignment requires compatitable type on the right hand");
+				errMsg("Assigned expression must be a subtype of target", this->line(), this->column(), this->file().c_str());
 			}
 
 			// extra check for assignment if in rule scope
@@ -431,6 +457,32 @@ const Type* PrimitivePatNode::typeCheck() {
 	// TODO
 	// Acutal parameters to an event will have the types given by the declaration for that event
 	// we don't need to check it now, they will only be read in during runtime.
+	// first check event paramters numbers
+	EventEntry *ee = this->ee_;
+	const Type *type = ee->EventEntry::type();
+	const vector<const Type*>* argTypes = type->Type::argTypes();
+	vector<VariableEntry*>* params = this->params();
+	char msg[MAXBUF];
+
+	if (argTypes == NULL) {
+		if (params == NULL) {
+			// good thing
+		} else {
+			// bad thing
+			sprintf(msg,"Event %s require %d arguments", ee->SymTabEntry::name().c_str(), 0);
+			errMsg(msg, this->line(), this->column(), this->file().c_str());
+		}
+	} else {
+		if (params == NULL) {
+			// bad thing
+			sprintf(msg,"Event %s require %d arguments", ee->SymTabEntry::name().c_str(), argTypes->size());
+			errMsg(msg, this->line(), this->column(), this->file().c_str());
+		} else if(params->size() != argTypes->size()){
+			// bad thing
+			sprintf(msg,"Event %s require %d arguments", ee->SymTabEntry::name().c_str(), argTypes->size());
+			errMsg(msg, this->line(), this->column(), this->file().c_str());
+		}
+	} 
 	return NULL;
 }
 
@@ -559,7 +611,7 @@ const Type* PatNode::typeCheck() {
 	if (pnk == BasePatNode::PatNodeKind::NEG) {
 		this->pat1()->typeCheck();
 		if (this->pat1()->hasSeqOps() || this->pat1()->hasStar())
-			errMsg("type error: no NEG on patterns that have any sequencing operators or star");
+			errMsg("Only simple patterns without `.', `*', and `!' operatorscan be negated", this->line(), this->column(), this->file().c_str());
 	} else {
 		if (this->pat1() != NULL)
 			this->pat1()->typeCheck();
@@ -724,22 +776,51 @@ const Type* InvocationNode::typeCheck() {
 	const Type *formalType,*actualType;
 	const vector<const Type*>* argTypes = ftype->argTypes();
 	vector<ExprNode*>* params = this->params();
+	char msg[MAXBUF];
+
+	int i = 0, expSize = 0, actSize = 0;
+	if (argTypes != NULL)
+		expSize = argTypes->size();
+	if (params != NULL)
+		actSize = params->size();
+
+	if (actSize != expSize) {
+		sprintf(msg,"%d arguments expected for %s", expSize, ste->SymTabEntry::name().c_str());
+		errMsg(msg, this->line(), this->column(), this->file().c_str());
+
+		return ftype->retType();
+	} else if (actSize == 0) {
+		return ftype->retType();
+	}
 
 	auto it = argTypes->begin();
 	auto pa = params->begin();
 	for (; (it != argTypes->end()) && (pa != params->end()); ++it, ++pa) {
+		++i;
 		formalType = (*it);
 		actualType = (*pa)->typeCheck();
-		if (formalType == NULL || actualType == NULL)
-			errMsg("type error: function parameter type not match");
-		else if (formalType->tag() == actualType->tag()) {
+		if (formalType == NULL || actualType == NULL) {
+			sprintf(msg,"Type mismatch for argument %d to %s", i, ste->SymTabEntry::name().c_str());
+			errMsg(msg, this->line(), this->column(), this->file().c_str());
+		} else if (formalType->tag() == actualType->tag()) {
 			// type match exactly, do nothing
+			if (formalType->tag() == Type::TypeTag::CLASS) {
+				const SymTabEntry *lste, *rste;
+				lste = formalType->typeDesc();
+				rste = actualType->typeDesc();
+				if (lste != rste) {
+					sprintf(msg,"Type mismatch for argument %d to %s", i, ste->SymTabEntry::name().c_str());
+					errMsg(msg, this->line(), this->column(), this->file().c_str());
+				}
+			}
 		} else {
 			if (formalType->isSubType(actualType)) {
 				// coerced type needed
 				(*pa)->coercedType(formalType);
 			} else {
-				errMsg("type error: function parameter type not match");
+				sprintf(msg,"Type mismatch for argument %d to %s", i, ste->SymTabEntry::name().c_str());
+				errMsg(msg, this->line(), this->column(), this->file().c_str());
+				//errMsg("type error: function parameter type not match");
 			}
 		}
 	}
@@ -776,10 +857,11 @@ const Type* IfNode::typeCheck() {
 
 	type = en->typeCheck();
 	if (! (type->isBool(type->tag()))) {
-		errMsg("type error: expect bool type value in condition part of if-stmt");
+		errMsg("Boolean argument expected", en->line(), en->column(), en->file().c_str());
 	}
 
-	then_->typeCheck();
+	if (then_ != NULL)
+		then_->typeCheck();
 	if (else_ != NULL)
 		else_->typeCheck();
 
@@ -794,7 +876,9 @@ void IfNode::typePrint(ostream& os, int indent) const{
 	os << "(";
 	this->cond()->typePrint(os, indent);
 	os << ")";
-	if ((this->thenStmt()->stmtNodeKind() != StmtNode::StmtNodeKind::COMPOUND)) { 
+	if (this->thenStmt() == NULL) {
+		// do nothing
+	} else if ((this->thenStmt()->stmtNodeKind() != StmtNode::StmtNodeKind::COMPOUND)) { 
 		prtSpace(os, indent + 2);
 		this->thenStmt()->typePrint(os, indent + 2);
 		os << ";";
@@ -826,7 +910,9 @@ void IfNode::print(ostream& os, int indent) const{
 	os << "(";
 	this->cond()->print(os, indent);
 	os << ")";
-	if ((this->thenStmt()->stmtNodeKind() != StmtNode::StmtNodeKind::COMPOUND)) { 
+	if (this->thenStmt() == NULL) {
+		// do nothing
+	} else if ((this->thenStmt()->stmtNodeKind() != StmtNode::StmtNodeKind::COMPOUND)) { 
 		prtSpace(os, indent + 2);
 		this->thenStmt()->print(os, indent + 2);
 		os << ";";
@@ -959,10 +1045,14 @@ void  CompoundStmtNode::typePrint(ostream& os, int indent) const{
 
 const Type* CompoundStmtNode::typeCheck() {
 	list<StmtNode*>* stmts = this->stmts();
+	if (stmts == NULL)
+		return NULL;
+
 	auto it = stmts->begin();
 
 	for (;it != stmts->end(); ++it) {
-		(*it)->typeCheck();
+		if ((*it) != NULL)
+			(*it)->typeCheck();
 	}
 
 	return NULL;
@@ -994,12 +1084,15 @@ void  CompoundStmtNode::print(ostream& os, int indent) const{
 const Type* ReturnStmtNode::typeCheck() {
 	const Type * funType = fun_->type();
 	const Type * retType = funType->retType();
-	const Type * retValType = expr_->typeCheck();
+	const Type * retValType;
+	if (expr_ != NULL)
+		retValType = expr_->typeCheck();
 
-	if (! retType->isSubType(retValType)) {
-		errMsg("type error: ret value type not match");
+	if ((retType->Type::tag() == Type::TypeTag::VOID) && (expr_ != NULL)) {
+		errMsg("No return value expected for a void function", this->line(), this->column(), this->file().c_str());
+	} else if (! retType->isSubType(retValType)) {
+		errMsg("Return value incompatible with current function's type", this->line(), this->column(), this->file().c_str());
 	}
 
-	// TODO ret type should not matter
-	return NULL;
+	return retType;
 }
