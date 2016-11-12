@@ -775,6 +775,17 @@ void  CompoundStmtNode::typePrint(ostream& os, int indent) const{
 	// TODO
 }
 
+const Type* CompoundStmtNode::typeCheck() {
+	list<StmtNode*>* stmts = this->stmts();
+	auto it = stmts->begin();
+
+	for (;it != stmts->end(); ++it) {
+		(*it)->typeCheck();
+	}
+
+	return NULL;
+}
+
 void  CompoundStmtNode::print(ostream& os, int indent) const{
 	// Add your code
 	if (this->stmts()->size() > 0) {

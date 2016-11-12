@@ -467,6 +467,7 @@ class CompoundStmtNode: public StmtNode{
   void  printWithoutBraces(ostream& os, int indent) const;
   void  print(ostream& os, int indent) const;
   void typePrint(ostream& os, int indent) const;
+  const Type* typeCheck();
 
  private:
   CompoundStmtNode(const CompoundStmtNode&);
