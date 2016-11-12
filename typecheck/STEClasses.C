@@ -12,9 +12,9 @@ const Type* GlobalEntry::typeCheck() {
 				continue;
 			}
 
-			if ((*it)->kind() == SymTabEntry::Kind::VARIABLE_KIND) {
-				((SymTabEntry *)(*it))->typeCheck();
-			}
+			//std::cout<<(*it)->name()<<endl;
+			((SymTabEntry *)(*it))->typeCheck();
+
 			++it;
 		}
 
@@ -35,6 +35,42 @@ const Type* GlobalEntry::typeCheck() {
 void GlobalEntry::typePrint(ostream& out, int indent) const
 {
 	// TODO
+	const SymTab *st = this->symTab();
+	if (st != NULL) {
+		out << endl;
+		auto it = st->begin();
+		while(it != st->end()) {
+			if ((*it)->name().compare("any") == 0) {
+				++it;
+				continue;
+			}
+
+			if ((*it)->kind() == SymTabEntry::Kind::VARIABLE_KIND) {
+				prtSpace(out, indent);
+				(*it)->typePrint(out, indent);
+				out << ";" << endl;
+			} else {
+				(*it)->typePrint(out, indent);
+			}
+
+			++it;
+		}
+
+		out<<endl;
+
+		int i = 0;
+		int size = this->rules().size();
+
+		const RuleNode *rn;
+		while (i < size){
+			rn = this->rule(i);
+			rn->typePrint(out, indent);
+			i++;
+		}
+	}
+
+	prtSpace(out, indent);
+	out<<endl;
 }
 
 void GlobalEntry::print(ostream& out, int indent) const
@@ -86,6 +122,22 @@ const Type* EventEntry::typeCheck() {
 
 void EventEntry::typePrint(ostream& out, int indent) const {
 	// TODO
+	prtSpace(out, indent);
+	out << "event";
+	out << step;
+	out << this->name();
+	if (this->symTab() != NULL) {
+		out << "(";
+		auto it = this->symTab()->begin();
+		for(; it != this->symTab()->end(); ++it) {
+			(*it)->typePrint(out, 0);
+			if ((*it)->next() != NULL)
+				out<<", ";
+		}
+		out << ")";
+	}
+	out << ";";
+	out <<endl;
 }
 void EventEntry::print(ostream& out, int indent) const
 {
@@ -118,6 +170,13 @@ VariableEntry::VariableEntry(const VariableEntry &v):
 void VariableEntry::typePrint(ostream& out, int indent) const
 {
 	// TODO
+	this->type()->print(out, indent);
+	out << step;
+	out << (this->name());
+	if (this->initVal() != NULL) {
+		out << " = ";
+		this->initVal()->typePrint(out, indent);
+	}
 }
 
 void VariableEntry::print(ostream& out, int indent) const
@@ -141,9 +200,14 @@ const Type* VariableEntry::typeCheck() {
 	exp = this->initVal();
 	if (exp != NULL) {
 		initValType = exp->typeCheck();
-		if (type == NULL || initValType == NULL || !(type->isSubType(initValType))) {
+		//std::cout<<"before print initValType"<<endl;
+		//std::cout<<initValType->name()<<endl;
+		//std::cout<<"after print initValType"<<endl;
+		if (type == NULL || initValType == NULL) {
 			// TODO handle type error here! However, do not propagate type error, return type.
-			errMsg("type error: initialization value not match the variable type");
+			errMsg("Assignment between incompatible types", this->line(), this->column(), this->file().c_str());
+		} else if (!(type->isSubType(initValType))) {
+			errMsg("Assignment between incompatible types", this->line(), this->column(), this->file().c_str());
 		}
 	}
 
@@ -166,6 +230,12 @@ const Type* ClassEntry::typeCheck() {
 
 void ClassEntry::typePrint(ostream& os, int indent) const{
 	// TODO
+	prtSpace(os, indent);
+	os << "class";
+	os << step;
+	os << this->name();
+	os << ";";
+	os << endl;
 }
 
 void ClassEntry::print(ostream& os, int indent) const{
@@ -185,6 +255,43 @@ const Type* FunctionEntry::typeCheck() {
 
 void FunctionEntry::typePrint(ostream& os, int indent) const{
 	// TODO
+	prtSpace(os, indent);
+	this->type()->retType()->print(os, indent);
+	os << step;
+	os << this->name();
+	os << "(";
+	if (this->symTab() != NULL) {
+		auto it = this->symTab()->begin();
+		int p_num = this->type()->arity();
+		int i = 0;
+		for(; (it != this->symTab()->end()) && (i < p_num); ++it, ++i) {
+			(*it)->typePrint(os, 0);
+			if (i < p_num - 1)
+				os<<", ";
+		}
+	}
+	os << ")";
+	if (this->body() != NULL) {
+		os << "{"<<endl;
+		auto it = this->symTab()->begin();
+		int p_num = this->type()->arity();
+		int i = 0;
+		// skip formal parameters
+		for (; i < p_num; ++i, ++it){}
+		// print var decl in function
+		for(; (it != this->symTab()->end()); ++it) {
+			prtSpace(os, indent + 2);
+			(*it)->typePrint(os, indent + 2);
+			os << ";" << endl;
+		}
+
+		this->body()->typePrintWithoutBraces(os, indent + 2);
+
+		prtSpace(os, indent);
+		os << "}";
+	}
+	os << ";";
+	os <<endl;
 }
 
 void FunctionEntry::print(ostream& os, int indent) const{

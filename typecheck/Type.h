@@ -133,9 +133,19 @@ class Type {
   bool isSubType(const Type* t) const {
 	TypeTag tag = this->tag();
 	TypeTag pTag = t->tag();
+	const SymTabEntry *lste;
+	const SymTabEntry *rste;
 
 	if (this->isBool(tag) || this->isString(tag) || tag == CLASS) {
-		if (pTag == tag)
+		if (tag == CLASS && pTag == tag) {
+			//std::cout<<"class compare"<<endl;
+			lste = this->typeDesc();
+			rste = t->typeDesc();
+			if (lste == rste)
+				return true;
+			else
+				return false;
+		} else	if (pTag == tag)
 			return true;
 		else
 			return false;

@@ -41,6 +41,28 @@ Value::Value(const Value& v) {
 // **** and appropriate union field is properly initialized.
 
 void 
+Value::typePrint(ostream& os, int indent) const {
+  Type::TypeTag t;
+  switch (t = type_->tag()) {
+  case Type::ERROR: 
+	os << "ErrorValue "; break;
+  case Type::VOID: 
+	os << "VoidValue"; break;
+  case Type::BOOL: 
+	os << Type::name(t);
+	break;
+  default: 
+	if (Type::isString(type_->tag()))
+		os << Type::name(t);
+	else if (Type::isInt(t))
+		os << Type::name(t);
+	else if (Type::isFloat(t)) 
+		os << Type::name(t);
+	else internalErr("Value::print: unsupported value type");
+  }
+}
+
+void 
 Value::print(ostream& os, int indent) const {
   Type::TypeTag t;
   switch (t = type_->tag()) {
@@ -61,7 +83,8 @@ Value::print(ostream& os, int indent) const {
 		os << iVal_; 
 	  else os << (unsigned int)iVal_;
 	else if (Type::isFloat(t)) 
-	  os <<std::fixed<<std::setprecision(2)<< dVal_;
+	  //os <<std::fixed<<std::setprecision(2)<< dVal_;
+	  os << dVal_;
 	else internalErr("Value::print: unsupported value type");
   }
 }

@@ -7,14 +7,14 @@
 #include <string>
 #include "Type.h"
 
-extern int yylineno, yycolumnno;
+extern int yylinenum, yycolumnno;
 extern const char* yyfilename;
 
 class ProgramElem {
  public:
   ProgramElem(Type* t=NULL, int line=0, int column=0, string file="") {
     type_ = t;
-    line_ = (line == 0) ?  yylineno : line;
+    line_ = (line == 0) ?  yylinenum : line;
     column_ = (column == 0) ? yycolumnno : column;
     file_ = file == "" ? string(yyfilename) : file;
   }

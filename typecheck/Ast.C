@@ -156,15 +156,20 @@ const Type* OpNode::typeCheck() {
 
 	OpCode opCode = this->opCode();
 	ltype = this->arg(0)->typeCheck();
-	rtype = this->arg(1)->typeCheck();
+	if (this->arg(1) != NULL)
+		rtype = this->arg(1)->typeCheck();
 
 	switch(opCode) {
 		case OpNode::OpCode::UMINUS:
-			if(!ltype->isSigned(ltype->tag())) {
+			if(!ltype->isNumeric(ltype->tag())) {
 				// TODO handle type error here
-				errMsg("type error: expect signed type");
+				errMsg("type error: expect numeric type");
 			}
-			type = ltype;
+
+			if (ltype->isIntegral(ltype->tag()))
+				type = new Type::Type(Type::TypeTag::INT);
+			else
+				type = ltype;
 			break;
 		case OpNode::OpCode::PLUS:
 		case OpNode::OpCode::MINUS:
@@ -300,8 +305,9 @@ const Type* OpNode::typeCheck() {
 			// extra check for assignment if in rule scope
 			if (inRuleScope) {
 				SymTabEntry *ste = stm.lookUp(((RefExprNode *)this->arg(0))->ext());
-				if (ste->kind() != SymTabEntry::Kind::GLOBAL_KIND)
-					errMsg("type error: assignment inside rule can only assign to global variables");
+				// because we are in global scope now, so if we can find symtabentry, it's ok
+				if (ste == NULL)
+					errMsg("type error: assignment inside rule can only assign to global variables", this->line(), this->column(), this->file().c_str());
 			}
 
 			// return bool type, TODO for assignment, we are required to return true!
@@ -355,7 +361,39 @@ OpNode::print(ostream& os, int indent) const {
 
 void 
 OpNode::typePrint(ostream& os, int indent) const {
-	// TODO
+	int iopcode = static_cast<int>(opCode_);
+  if (opInfo[iopcode].prtType_ == OpNode::OpPrintType::PREFIX) {
+	os << opInfo[iopcode].name_;
+	if (arity_ > 0) {
+	  if (opInfo[iopcode].needParen_) 
+		os << '(';
+	  for (unsigned i=0; i < arity_-1; i++) {
+		if (arg_[i])
+		  arg_[i]->typePrint(os, indent);
+	    else os << "NULL";
+		os << ", ";
+	  }
+      if (arg_[arity_-1])
+		arg_[arity_-1]->typePrint(os, indent);
+	  else os << "NULL";
+	  if (opInfo[iopcode].needParen_) 
+		os << ") ";
+	}
+  }
+  else if ((opInfo[iopcode].prtType_ == OpNode::OpPrintType::INFIX) && (arity_ == 2)) {
+	if (opInfo[iopcode].needParen_) 
+	  os << "(";
+	if(arg_[0])
+	  arg_[0]->typePrint(os, indent);
+	else os << "NULL";
+	os << opInfo[iopcode].name_; 
+	if(arg_[1])
+	  arg_[1]->typePrint(os, indent);
+	else os << "NULL";
+	if (opInfo[iopcode].needParen_) 
+	  os << ")";
+  }
+  else internalErr("Unhandled case in OpNode::print");
 }
 
 PrimitivePatNode::PrimitivePatNode(EventEntry* ee, vector<VariableEntry*>* params,
@@ -398,6 +436,30 @@ const Type* PrimitivePatNode::typeCheck() {
 
 void PrimitivePatNode::typePrint(ostream& os, int indent) const{
 	// TODO
+	os << "(";
+	cout << this->event()->name();
+	if (this->event()->name().compare("any") != 0) {
+		os << "(";
+		if (this->params() != NULL) {
+			auto it = this->params()->begin();
+			int i, size;
+			size = this->params()->size();
+			for(i = 0;it != this->params()->end(); ++it, ++i) {
+				(*it)->typePrint(os, 0);
+				if (i < size - 1)
+					os<<", ";
+			}
+		}
+		os << ")";
+	}
+
+	if (this->cond() != NULL) {
+		os << "|";
+		this->cond()->typePrint(os, indent);
+	}
+
+	os << ")";
+
 }
 
 void PrimitivePatNode::print(ostream& os, int indent) const{
@@ -510,6 +572,32 @@ const Type* PatNode::typeCheck() {
 
 void PatNode::typePrint(ostream& os, int indent) const{
 	// TODO
+	// Add your code
+	os << "(";
+	switch(this->kind()) {
+		case BasePatNode::PatNodeKind::NEG :
+			os << "!";
+			this->pat1()->typePrint(os, indent);
+			break;
+		case BasePatNode::PatNodeKind::STAR :
+			this->pat1()->typePrint(os, indent);
+			os << " **";
+			break;
+		case BasePatNode::PatNodeKind::OR :
+			this->pat1()->typePrint(os, indent);
+			os << " \\/ ";
+			this->pat2()->typePrint(os, indent);
+			break;
+		case BasePatNode::PatNodeKind::SEQ :
+			this->pat1()->typePrint(os, indent);
+			os << " : ";
+			this->pat2()->typePrint(os, indent);
+			break;
+		default:
+			os << "ERROR: undefined PatNodeKind for PatNode"<<endl;
+			break;
+	}
+	os << ")";
 }
 
 void PatNode::print(ostream& os, int indent) const{
@@ -543,10 +631,15 @@ void PatNode::print(ostream& os, int indent) const{
 
 const Type* ValueNode::typeCheck() {
 	const Value* val = this->value();
-	if (val != NULL)
+	if (val != NULL) {
+		//std::cout << "val != NULL" << endl;
+		//this->print(std::cout, 0);
+		//std::cout<<endl;
 		return this->type();
-	else
+	 } else {
+		//std::cout << "val == NULL" << endl;
 		return new Type::Type(Type::TypeTag::VOID);
+	}
 }
 
 void ValueNode::print(ostream& os, int indent) const{
@@ -556,6 +649,10 @@ void ValueNode::print(ostream& os, int indent) const{
 
 void ValueNode::typePrint(ostream& os, int indent) const{
 	// TODO
+	const Type *ctype = this->coercedType();
+	if (ctype != NULL)
+		os << "(" << Type::name(ctype->tag()) << ")" <<" ";
+	this->value()->typePrint(os, indent);
 }
 
 RefExprNode::RefExprNode(string ext, const SymTabEntry* ste,
@@ -578,6 +675,11 @@ const Type* RefExprNode::typeCheck() {
 
 void RefExprNode::typePrint(ostream& os, int indent) const{
 	// TODO
+	//os << this->ext();
+	const Type *ctype = this->coercedType();
+	if (ctype != NULL)
+		os << "(" << Type::name(ctype->tag()) << ")" <<" ";
+	os << Type::name(this->symTabEntry()->type()->tag());
 }
 
 // TODO don't know what kind of copy here it is, should we copy ext_???
@@ -647,6 +749,17 @@ const Type* InvocationNode::typeCheck() {
 
 void InvocationNode::typePrint(ostream& os, int indent) const{
 	// TODO
+	os << this->symTabEntry()->name();
+	os << "(";
+	if (this->params() != NULL) {
+		auto it = this->params()->begin();
+		for(;it != this->params()->end(); ++it) {
+			(*it)->typePrint(os, 0);
+			if ((it + 1) != this->params()->end())
+				os<<", ";
+		}
+	}
+	os << ")";
 }
 
 IfNode::IfNode(ExprNode* cond, StmtNode* thenStmt, 
@@ -676,6 +789,34 @@ const Type* IfNode::typeCheck() {
 
 void IfNode::typePrint(ostream& os, int indent) const{
 	// TODO
+	prtSpace(os, indent);
+	os << "if";
+	os << "(";
+	this->cond()->typePrint(os, indent);
+	os << ")";
+	if ((this->thenStmt()->stmtNodeKind() != StmtNode::StmtNodeKind::COMPOUND)) { 
+		prtSpace(os, indent + 2);
+		this->thenStmt()->typePrint(os, indent + 2);
+		os << ";";
+		os << endl;
+	} else {
+		
+		(this->thenStmt())->typePrint(os, indent + 2);
+	}
+
+	if (this->elseStmt() != NULL) {
+		prtSpace(os, indent);
+		os << "else "; 
+
+		if ((this->elseStmt()->stmtNodeKind() != StmtNode::StmtNodeKind::COMPOUND)){
+			prtSpace(os, indent + 2);
+			this->elseStmt()->typePrint(os, indent + 2);
+			os << ";";
+			os << endl;
+		} else {
+			(this->elseStmt())->typePrint(os, indent + 2);
+		}
+	}
 }
 
 void IfNode::print(ostream& os, int indent) const{
@@ -743,6 +884,12 @@ const Type* RuleNode::typeCheck() {
 
 void RuleNode::typePrint(ostream& os, int indent) const{
 	// TODO
+	prtSpace(os, indent);
+	this->pat()->typePrint(os, indent);
+	os << "-->";
+	this->reaction()->typePrint(os, indent);
+	prtSpace(os, indent);
+	os << ";;" << endl;
 }
 
 void RuleNode::print(ostream& os, int indent) const{
@@ -753,6 +900,22 @@ void RuleNode::print(ostream& os, int indent) const{
 	this->reaction()->print(os, indent);
 	prtSpace(os, indent);
 	os << ";;" << endl;
+}
+
+void  CompoundStmtNode::typePrintWithoutBraces(ostream& os, int indent) const{
+	// Add your code
+	if (this->stmts() != NULL) {
+		auto it = this->stmts()->begin();
+		for (; it != this->stmts()->end(); ++it) {
+			if (((*it)->stmtNodeKind() != StmtNode::StmtNodeKind::COMPOUND) ||
+				((*it)->stmtNodeKind() != StmtNode::StmtNodeKind::IF)) {
+				prtSpace(os, indent);
+				(*it)->typePrint(os, indent);
+				os << ";" << endl;
+			} else
+				(*it)->typePrint(os, indent);
+		}
+	}
 }
 
 void  CompoundStmtNode::printWithoutBraces(ostream& os, int indent) const{
@@ -773,6 +936,25 @@ void  CompoundStmtNode::printWithoutBraces(ostream& os, int indent) const{
 
 void  CompoundStmtNode::typePrint(ostream& os, int indent) const{
 	// TODO
+	if (this->stmts()->size() > 0) {
+		prtSpace(os, indent);
+		os << "{" << endl;
+		auto it = this->stmts()->begin();
+		for (; it != this->stmts()->end(); ++it) {
+			if (((*it)->stmtNodeKind() != StmtNode::StmtNodeKind::COMPOUND) && 
+				((*it)->stmtNodeKind() != StmtNode::StmtNodeKind::IF)) {
+				prtSpace(os, indent + 2);
+				(*it)->typePrint(os, indent + 2);
+				os << ";" << endl;
+			} else
+				(*it)->typePrint(os, indent + 2);
+		}
+		prtSpace(os, indent);
+		os << "};" << endl;
+	} else {
+		prtSpace(os, indent);
+		os << "{};" << endl;
+	}
 }
 
 const Type* CompoundStmtNode::typeCheck() {

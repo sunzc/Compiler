@@ -418,6 +418,8 @@ class ReturnStmtNode: public StmtNode {
 	if(expr_ != NULL) expr_->print(os, indent); else os << "NULL";};
   void typePrint(ostream& os, int indent) const {
 	// TODO
+	os << "return "; 
+	if(expr_ != NULL) expr_->typePrint(os, indent); else os << "NULL";
   };
 
  private:
@@ -442,6 +444,7 @@ class ExprStmtNode: public StmtNode {
 	if (expr_ != NULL) { expr_->print(os, indent);}};
   void typePrint(ostream& os, int indent) const{
 	// TODO
+	if (expr_ != NULL) { expr_->typePrint(os, indent);}
   };
 
  private:
@@ -465,8 +468,9 @@ class CompoundStmtNode: public StmtNode{
     { if(stmts_ != NULL) stmts_->push_back(s); };
   
   void  printWithoutBraces(ostream& os, int indent) const;
+  void  typePrintWithoutBraces(ostream& os, int indent) const;
   void  print(ostream& os, int indent) const;
-  void typePrint(ostream& os, int indent) const;
+  void  typePrint(ostream& os, int indent) const;
   const Type* typeCheck();
 
  private:

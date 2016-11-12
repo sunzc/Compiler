@@ -39,6 +39,7 @@ class Value {
   void dval(double d) ;
 
   void print(ostream& os, int indent) const;
+  void typePrint(ostream& os, int indent) const;
 
  private:
   const Type* type_;       // Shallow-copied from caller of constructor
