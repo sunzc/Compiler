@@ -100,6 +100,7 @@ class ClassEntry: public SymTabEntry {
     : SymTabEntry(name, SymTabEntry::Kind::CLASS_KIND, line,column, file) {};
   ~ClassEntry() {};
 
+  const Type* typeCheck();
   void print(ostream& os, int indent) const;
   void typePrint(ostream& os, int indent) const;
 };
@@ -117,6 +118,7 @@ class FunctionEntry: public SymTabEntry {
   CompoundStmtNode* body() {return body_;};
   void body(CompoundStmtNode* n) { body_ = n;};
 
+  const Type* typeCheck();
   void print(ostream& os, int indent) const;
   void typePrint(ostream& os, int indent) const;
 

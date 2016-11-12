@@ -159,6 +159,11 @@ void BlockEntry::typePrint(ostream& os, int indent) const{
 	// TODO
 }
 
+const Type* ClassEntry::typeCheck() {
+	// TODO
+	return NULL;
+}
+
 void ClassEntry::typePrint(ostream& os, int indent) const{
 	// TODO
 }
@@ -171,6 +176,11 @@ void ClassEntry::print(ostream& os, int indent) const{
 	os << this->name();
 	os << ";";
 	os << endl;
+}
+
+const Type* FunctionEntry::typeCheck() {
+	// TODO
+	return NULL;
 }
 
 void FunctionEntry::typePrint(ostream& os, int indent) const{
