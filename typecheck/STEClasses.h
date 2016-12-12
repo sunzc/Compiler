@@ -34,6 +34,7 @@ class GlobalEntry: public SymTabEntry {
   void print(ostream&, int indent=0) const;
   void typePrint(ostream&, int indent=0) const;
   const Type* typeCheck();
+  void memAlloc();
 
  private:
   vector<RuleNode*> rules_;
@@ -121,6 +122,7 @@ class FunctionEntry: public SymTabEntry {
   const Type* typeCheck();
   void print(ostream& os, int indent) const;
   void typePrint(ostream& os, int indent) const;
+  void memAlloc();
 
  private:
   CompoundStmtNode* body_;

@@ -2,6 +2,44 @@
 #include "Value.h"
 #include "ParserUtil.h"
 
+// Global Data Memory Allocation: record current offset for global data
+int currentOffset = 0;
+
+void GlobalEntry::memAlloc() {
+	const SymTab *st = this->symTab();
+	Type::TypeTag tag;
+	if (st != NULL) {
+		auto it = st->begin();
+		while(it != st->end()) {
+			if ((*it)->name().compare("any") == 0) {
+				++it;
+				continue;
+			}
+
+			if ((*it)->kind() == SymTabEntry::Kind::VARIABLE_KIND) {
+				assert(((VariableEntry *)(*it))->varKind() == VariableEntry::VarKind::GLOBAL_VAR);
+
+				tag = (*it)->type()->tag();
+				if(tag >= Type::TypeTag::VOID && tag <= Type::TypeTag::CLASS){
+					((VariableEntry *)(*it))->offSet(currentOffset);
+					// For simplicity, memory is addressed by word, so we treat BOOL, BYTE just
+					// the same as INTEGER and sizeof(float) == sizeof(int)
+					currentOffset += 1;
+				} else {
+					// unexpected error, all global var should follow into one primitive type
+					// TODO
+					errMsg("Type Error: unknown type for global variable", this->line(), this->column(), this->file().c_str());
+				}
+			} else if ((*it)->kind() == SymTabEntry::Kind::FUNCTION_KIND) {
+				// call function entry's own memAlloc()
+				((FunctionEntry *)(*it))->memAlloc();
+			}
+
+			++it;
+		}
+	}
+}
+
 const Type* GlobalEntry::typeCheck() {
 	const SymTab *st = this->symTab();
 	if (st != NULL) {
@@ -246,6 +284,51 @@ void ClassEntry::print(ostream& os, int indent) const{
 	os << this->name();
 	os << ";";
 	os << endl;
+}
+
+// Stack Layout
+//  +------------+
+//  | param3     |
+//  | param2     |
+//  | param1     |
+//  | retaddr    |
+//  | BP         | <--BP
+//  | local var1 |
+//  | local var2 |
+//  | local var3 |
+//  +------------+
+
+void FunctionEntry::memAlloc() {
+	Type::TypeTag tag;
+	int offsetOnStack = 1;
+
+	if (this->symTab() != NULL) {
+		auto it = this->symTab()->begin();
+		int p_num = this->type()->arity();
+		int i = 0;
+
+		// skip parameters
+		for(; (it != this->symTab()->end()) && (i < p_num); ++it, ++i);
+
+		// start allocate memory on stack for local vars
+		for(; (it != this->symTab()->end()) && (i >= p_num); ++it, ++i) {
+			if ((*it)->kind() == SymTabEntry::Kind::VARIABLE_KIND) {
+				assert(((VariableEntry *)(*it))->varKind() == VariableEntry::VarKind::LOCAL_VAR);
+
+				tag = (*it)->type()->tag();
+				if(tag >= Type::TypeTag::VOID && tag <= Type::TypeTag::CLASS){
+					((VariableEntry *)(*it))->offSet(offsetOnStack);
+					// For simplicity, memory is addressed by word, so we treat BOOL, BYTE just
+					// the same as INTEGER and sizeof(float) == sizeof(int)
+					offsetOnStack += 1;
+				} else {
+					// unexpected error, all global var should follow into one primitive type
+					// TODO
+					errMsg("Type Error: unknown type for local variable", this->line(), this->column(), this->file().c_str());
+				}
+			}
+		}
+	}
 }
 
 const Type* FunctionEntry::typeCheck() {
