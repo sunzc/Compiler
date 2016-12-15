@@ -75,6 +75,8 @@ class SymTabEntry: public ProgramElem {
   virtual const Type* typeCheck() {return NULL;};
   virtual void typePrint(ostream& os, int indent=0) const {};
 
+  virtual string codeGen() {return NULL;};
+
  private:
   string name_;
   Kind kind_;

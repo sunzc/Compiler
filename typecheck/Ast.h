@@ -68,7 +68,7 @@ class AstNode: public ProgramElem {
   virtual const Type* typeCheck() {return NULL;};
   virtual void typePrint(ostream& os, int indent=0) const=0;
   virtual void print(ostream& os, int indent=0) const=0;
-  virtual EFSA* codeGen() {return NULL;};
+  virtual string codeGen() {return NULL;};
 
   virtual void renameRV(string prefix) {}; // new names start with given prefix
   virtual bool operator==(const AstNode&) const { return false; };

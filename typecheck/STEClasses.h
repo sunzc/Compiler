@@ -35,6 +35,9 @@ class GlobalEntry: public SymTabEntry {
   void typePrint(ostream&, int indent=0) const;
   const Type* typeCheck();
   void memAlloc();
+  string codeGen();
+  int getTempReg();
+  void releaseTempReg(int);
 
  private:
   vector<RuleNode*> rules_;
