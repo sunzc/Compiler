@@ -79,7 +79,10 @@ class VariableEntry: public SymTabEntry {
   void varKind(VarKind v) { vkind_ = v;};
 
   int offSet() const { return offSet_;} ;
-  void offSet(int o) {offSet_ = o;};
+  void offSet(int o) {
+	cout<<"kind : "<<this->varKind()<<" name: "<<this->name()<<" offset: "<<o<<endl; 
+	offSet_ = o;
+  };
 
   const ExprNode* initVal() const { return initVal_;}
   ExprNode* initVal() { return initVal_;};

@@ -211,6 +211,7 @@ main(int argc, char *argv[], char *envp[]) {
   if (ge != NULL) {
 	//cout << "Finished parsing, here is the AST\n";
 	ge->typeCheck();
+	ge->memAlloc();
 	ge->typePrint(cout, 2);
   }
 #endif
