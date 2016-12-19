@@ -38,4 +38,6 @@ class RegManager {
   std::list<int> freeCalleeSFR_;
   std::list<int> inUseCallerSFR_;
   std::list<int> inUseCalleeSFR_;
-}
+};
+
+#endif

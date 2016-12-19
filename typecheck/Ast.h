@@ -5,6 +5,7 @@
 #include "Value.h"
 #include "ProgramElem.h"
 #include "SymTabEntry.h"
+#include "RegManager.h"
 
 class BlockEntry;
 class EFSA;
@@ -68,7 +69,8 @@ class AstNode: public ProgramElem {
   virtual const Type* typeCheck() {return NULL;};
   virtual void typePrint(ostream& os, int indent=0) const=0;
   virtual void print(ostream& os, int indent=0) const=0;
-  virtual string codeGen() {return NULL;};
+  virtual string codeGen(RegManager *rm) {return NULL;};
+  virtual string getTempReg() {return NULL;};
 
   virtual void renameRV(string prefix) {}; // new names start with given prefix
   virtual bool operator==(const AstNode&) const { return false; };
@@ -531,6 +533,7 @@ class RuleNode: public AstNode {
   const Type* typeCheck();
   void print(ostream& os, int indent=0) const;
   void typePrint(ostream& os, int indent) const;
+  string codeGen(RegManager *rm);
 
  private:
   BlockEntry    *rste_;

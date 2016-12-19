@@ -4,6 +4,7 @@
 #include "SymTab.h"
 #include "Value.h"
 #include "ProgramElem.h"
+#include "RegManager.h"
 
 class SymTabEntry;
 class ExprNode;
@@ -75,7 +76,7 @@ class SymTabEntry: public ProgramElem {
   virtual const Type* typeCheck() {return NULL;};
   virtual void typePrint(ostream& os, int indent=0) const {};
 
-  virtual string codeGen() {return NULL;};
+  virtual string codeGen(RegManager *rm) {return NULL;};
 
  private:
   string name_;

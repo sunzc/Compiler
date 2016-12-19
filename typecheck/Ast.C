@@ -945,6 +945,11 @@ void IfNode::print(ostream& os, int indent) const{
 	}
 }
 
+string RuleNode::codeGen(RegManager *rm) {
+	// TODO
+	string code;
+	return code;
+}
 RuleNode::RuleNode(BlockEntry *re, BasePatNode* pat, StmtNode* reaction, 
 	int line, int column, string file):
 	AstNode(AstNode::NodeType::RULE_NODE, line, column, file) {

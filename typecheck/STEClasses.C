@@ -5,11 +5,15 @@
 // Global Data Memory Allocation: record current offset for global data
 int currentOffset = 0;
 
-string GlobalEntry::codeGen() {
+string GlobalEntry::codeGen(RegManager *rm) {
 	const SymTab *st = this->symTab();
 	Type::TypeTag tag;
-	int offset, tempReg;
-	string code = "";
+	int offset;
+	// tempReg: reg name like "R001", "F009"
+	string tempReg;
+	string initCode = "";
+	string funcCode = "";
+	string ruleCode = "";
 	ExprNode *initVal;
 
 	if (st != NULL) {
@@ -29,12 +33,11 @@ string GlobalEntry::codeGen() {
 					if (initVal == NULL)
 						continue;
 
-					// TODO we need an regManager which is responsible for manage reg allocation
-					code += initVal->codeGen();
+					initCode += initVal->codeGen(rm);
 
 					// generate initialization code for global var
 					offset = ((VariableEntry *)(*it))->offSet();
-					tempReg =  initVal->getTempVal();
+					tempReg =  initVal->getTempReg();
 					// generate code that store tempReg value into mem loc at offset
 					// TODO store STI/STF tempReg offset
 
@@ -44,7 +47,8 @@ string GlobalEntry::codeGen() {
 					errMsg("Type Error: unknown type for global variable", this->line(), this->column(), this->file().c_str());
 				}
 			} else if ((*it)->kind() == SymTabEntry::Kind::FUNCTION_KIND) {
-				code += ((FunctionEntry *)(*it))->codeGen();
+				((FunctionEntry *)(*it))->regManager(new RegManager());
+				funcCode += ((FunctionEntry *)(*it))->codeGen(((FunctionEntry *)(*it))->regManager());
 			}
 
 			++it;
@@ -56,7 +60,7 @@ string GlobalEntry::codeGen() {
 		const RuleNode *rn;
 		while (i < size){
 			rn = this->rule(i);
-			code += rn->codeGen();
+			ruleCode += ((RuleNode *)rn)->codeGen(rm);
 			i++;
 		}
 	}
@@ -341,6 +345,12 @@ void ClassEntry::print(ostream& os, int indent) const{
 	os << this->name();
 	os << ";";
 	os << endl;
+}
+
+string FunctionEntry::codeGen(RegManager *rm) {
+	// TODO
+	string code;
+	return code;
 }
 
 // Stack Layout

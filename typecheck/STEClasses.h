@@ -4,6 +4,7 @@
 #include "SymTab.h"
 #include "SymTabEntry.h"
 #include "Ast.h"
+#include "RegManager.h"
 
 class StmtNode;
 class RuleNode;
@@ -35,12 +36,13 @@ class GlobalEntry: public SymTabEntry {
   void typePrint(ostream&, int indent=0) const;
   const Type* typeCheck();
   void memAlloc();
-  string codeGen();
-  int getTempReg();
-  void releaseTempReg(int);
+  string codeGen(RegManager *);
+  RegManager *regManager() { return rm_;};
+  void regManager(RegManager *rm) { rm_ = rm;};
 
  private:
   vector<RuleNode*> rules_;
+  RegManager *rm_;
 };
 
 class BlockEntry: public SymTabEntry {
@@ -129,9 +131,13 @@ class FunctionEntry: public SymTabEntry {
   void print(ostream& os, int indent) const;
   void typePrint(ostream& os, int indent) const;
   void memAlloc();
+  string codeGen(RegManager *rm);
+  void regManager(RegManager *rm) { rm_ = rm;};
+  RegManager *regManager() { return rm_;};
 
  private:
   CompoundStmtNode* body_;
+  RegManager *rm_;
 };
 
 class EventEntry: public SymTabEntry {

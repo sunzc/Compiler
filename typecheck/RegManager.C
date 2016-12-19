@@ -18,29 +18,33 @@ int RegManager::getReg(bool isCallerSave, bool isFloat) {
 	int ret;
 
 	if (isCallerSave && isFloat) {
-		ret = freeCallerSFR_.pop_front();
+		ret = freeCallerSFR_.front();
+		freeCallerSFR_.pop_front();
 		inUseCallerSFR_.push_back(ret);
 	} else if (isCallerSave && !isFloat) {
-		ret = freeCallerSIR_.pop_front();
+		ret = freeCallerSIR_.front();
+		freeCallerSIR_.pop_front();
 		inUseCallerSIR_.push_back(ret);
 	} else if (!isCallerSave && isFloat) {
-		ret = freeCalleeSFR_.pop_front();
+		ret = freeCalleeSFR_.front();
+		freeCalleeSFR_.pop_front();
 		inUseCalleeSFR_.push_back(ret);
 	} else if (!isCallerSave && !isFloat) {
-		ret = freeCalleeSIR_.pop_front();
+		ret = freeCalleeSIR_.front();
+		freeCalleeSIR_.pop_front();
 		inUseCalleeSIR_.push_back(ret);
 	}
 
 	return ret;
 }
 
-bool RegManager::isCallerSave(int regNum) {
+bool RegManager::isCallerSR(int regNum) {
 	if (regNum >= CALLER_START && regNum <= CALLER_END)
 		return true;
 	else if (regNum >= CALLEE_START && regNum <= CALLEE_END)
 		return false;
 	else {
-		std::cout<<"ERROR: register number out of range!!! reg:"<<regNum<<endl;
+		std::cout<<"ERROR: register number out of range!!! reg:"<<regNum<<std::endl;
 		return false;
 	}
 }
@@ -48,7 +52,7 @@ bool RegManager::isCallerSave(int regNum) {
 void RegManager::releaseReg(int regNum, bool isFloat) {
 	bool isCaller;
 
-	isCaller = RegManager::isCallerSave(regNum);
+	isCaller = RegManager::isCallerSR(regNum);
 
 	if (isCaller && isFloat) {
 		inUseCallerSFR_.remove(regNum);
