@@ -4,7 +4,7 @@ CXXFLAGS = -g -O -Wno-deprecated -std=c++0x -Wall
 FLEX = flex
 BISON = bison
 
-demo:	driveParse.o E--_lexer.o E--_parser.o Ast.o STEClasses.o SymTabMgr.o Value.o Type.o SymTabEntry.o Error.o ParserUtil.o SymTab.o RegManager.o
+demo:	driveParse.o E--_lexer.o E--_parser.o Ast.o STEClasses.o SymTabMgr.o Value.o Type.o SymTabEntry.o Error.o ParserUtil.o SymTab.o RegManager.o Instruction.o
 	$(CXX) -o $@ $^ -lfl
 
 E--_lexer.o:	E--_lexer.C E--.tab.h
@@ -14,6 +14,7 @@ E--_parser.C: E--_parser.y++
 	$(BISON) -t -d -v -o E--_parser.C E--_parser.y++; \
   mv E--_parser.H E--.tab.h
 
+Instruction.o: Instruction.h Instruction.C
 RegManager.o: RegManager.h RegManager.C
 SymTabMgr.o: SymTabMgr.h SymTabMgr.C
 SymTabEntry.o: SymTabEntry.h SymTabEntry.C
