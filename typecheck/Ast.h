@@ -473,7 +473,7 @@ class ExprStmtNode: public StmtNode {
 	// TODO
 	if (expr_ != NULL) { expr_->typePrint(os, indent);}
   };
-  string codeGen(RegManager *rm);
+  string codeGen(RegManager *rm){ return expr_->codeGen(rm);};
 
  private:
   ExprNode* expr_;

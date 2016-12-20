@@ -1650,7 +1650,17 @@ void  CompoundStmtNode::print(ostream& os, int indent) const{
 
 string CompoundStmtNode::codeGen(RegManager *rm) {
 	string code;
-	// TODO
+	list<StmtNode*>* stmts = this->stmts();
+	if (stmts == NULL)
+		return NULL;
+
+	auto it = stmts->begin();
+
+	for (;it != stmts->end(); ++it) {
+		if ((*it) != NULL)
+			code += (*it)->codeGen(rm);
+	}
+
 	return code;
 }
 
