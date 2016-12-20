@@ -1,6 +1,7 @@
 #include "STEClasses.h"
 #include "Value.h"
 #include "ParserUtil.h"
+#include "Instruction.h"
 
 // Global Data Memory Allocation: record current offset for global data
 int currentOffset = 0;
@@ -10,11 +11,14 @@ string GlobalEntry::codeGen(RegManager *rm) {
 	Type::TypeTag tag;
 	int offset;
 	// tempReg: reg name like "R001", "F009"
-	string tempReg;
+	int tmpReg1, tmpReg2;
 	string initCode = "";
 	string funcCode = "";
 	string ruleCode = "";
 	ExprNode *initVal;
+	bool isFloat;
+	Instruction::Operand *arg1, *arg2;
+	MovIns *mi;
 
 	if (st != NULL) {
 		auto it = st->begin();
@@ -36,10 +40,30 @@ string GlobalEntry::codeGen(RegManager *rm) {
 					initCode += initVal->codeGen(rm);
 
 					// generate initialization code for global var
+					// inst1: MOVI offset tmpReg1
 					offset = ((VariableEntry *)(*it))->offSet();
-					tempReg =  initVal->getTempReg();
-					// generate code that store tempReg value into mem loc at offset
-					// TODO store STI/STF tempReg offset
+					// alloc a caller-save, interger reg
+					tmpReg1 = rm->getReg(true, false);
+					arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, offset);
+					arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+					mi = new MovIns(MovIns::MovInsType::MOVI, arg1, arg2);
+					initCode += mi->toString();
+					
+					// inst2: STI/F tmpReg2 tmpReg1
+					tmpReg2 =  initVal->getTempReg();
+					isFloat = initVal->isFloat();
+					if (isFloat) {
+						arg1 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg2);
+						mi = new MovIns(MovIns::MovInsType::STF, arg1, arg2);
+						rm->releaseReg(tmpReg2, true);
+					} else {
+						arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
+						mi = new MovIns(MovIns::MovInsType::STI, arg1, arg2);
+						rm->releaseReg(tmpReg2, false);
+					}
+
+					rm->releaseReg(tmpReg1, false);
+					initCode += mi->toString();
 
 				} else {
 					// unexpected error, all global var should follow into one primitive type

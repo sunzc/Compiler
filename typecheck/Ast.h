@@ -70,7 +70,8 @@ class AstNode: public ProgramElem {
   virtual void typePrint(ostream& os, int indent=0) const=0;
   virtual void print(ostream& os, int indent=0) const=0;
   virtual string codeGen(RegManager *rm) {return NULL;};
-  virtual string getTempReg() {return NULL;};
+  virtual int getTempReg() {return 0;};
+  virtual bool isFloat() { return false;};
 
   virtual void renameRV(string prefix) {}; // new names start with given prefix
   virtual bool operator==(const AstNode&) const { return false; };
