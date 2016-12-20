@@ -1502,7 +1502,62 @@ void IfNode::print(ostream& os, int indent) const{
 
 string IfNode::codeGen(RegManager *rm) {
 	string code;
-	// TODO
+	string elseCode;
+	string thenCode;
+	string thenLabel;
+	string afterIfLabel;
+	int tmpReg1;
+	RelOpIns *roi;
+	JumpIns *ji;
+	Instruction::Operand *arg1, *arg2;
+
+	// inst1: JMPC EQ tmpReg1 1 thenLabel
+	//        elseCode
+	//        JMP after_if/then
+	// then:
+	//	  thenCode
+	// after_if:
+	//        ...
+
+	// cond_ should be integer reg
+	tmpReg1 = cond_->getTmpReg();
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+	roi = new RelOpIns(RelOpIns::RelOpInsType::EQ, arg1, arg2);
+
+	// generate thenStmt label
+	// inst1: JMPC EQ tmpReg1 1 thenLabel
+	thenLabel = AstNode::getLabel();
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, thenLabel);
+	ji = new JumpIns(JumpIns::JumpInsType::JMPC, roi, arg1);
+	code += ji->toString();
+
+	// it's safe to release cond_->tmpReg
+	if (cond_->isRecyclable())
+		rm->releaseReg(tmpReg1, false);
+
+	// elseStmtCode
+	if (this->elseStmt() != NULL) {
+		elseCode = this->elseStmt()->codeGen(rm);
+	}
+
+	thenCode += thenLabel + ": ";
+	if (this->thenStmt() != NULL) {
+		// JMP after_if
+		afterIfLabel = AstNode::getLabel();
+		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, afterIfLabel);
+		ji = new JumpIns(JumpIns::JumpInsType::JMP, NULL, arg1);
+		elseCode += ji->toString();
+		thenCode += this->thenStmt()->codeGen(rm);
+		code += elseCode + thenCode + afterIfLabel + ": ";
+	} else {
+		// thenStmt == NULL, so thenLabel == afterIfLabel
+		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, thenLabel);
+		ji = new JumpIns(JumpIns::JumpInsType::JMP, NULL, arg1);
+		elseCode += ji->toString();
+		code += elseCode + thenCode;
+	}
+
 	return code;
 }
 
