@@ -45,7 +45,7 @@ std::string ArithIns::toString(){
 			break;
 	}
 
- 	inst += arg1_->toString() + " " + arg2_->toString() + " " + dest_->toString()+"\n";
+	inst += arg1_->toString() + " " + arg2_->toString() + " " + dest_->toString()+"\n";
 
 	return inst;
 }
