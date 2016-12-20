@@ -426,7 +426,77 @@ OpNode::typePrint(ostream& os, int indent) const {
 
 string OpNode::codeGen(RegManager *rm) {
 	string code = NULL;
-	// TODO
+	int tmpReg1, tmpReg2, destReg;
+	unsigned int arity, i;
+	bool isFloat = false;
+	const Type *ctype = this->coercedType();
+	const Type *type = this->type();
+	Instruction::Operand *arg1, *arg2, *dest;
+	ExprNode *op1, *op2, *op;
+	MovIns *mi;
+	ArithIns *ai;
+	FloatArithIns *fai;
+	OpNode::OpCode opcode = this->opCode();
+
+	// inherit existing code
+	arity = this->arity();
+	for (i = 0; i < arity; i++) {
+		op = this->arg(i);
+		code += op->codeGen(rm);
+	}
+
+	// 1. get original type
+	if(type->tag() == Type::TypeTag::DOUBLE)
+		isFloat = true;
+	else
+		isFloat = false;
+
+	op1 = this->arg(0);
+	op2 = this->arg(1);
+
+	tmpReg1 = op1->getTmpReg();
+	if (op2 != NULL)
+		tmpReg2 = op2->getTmpReg();
+	else
+		tmpReg2 = -1;
+
+	//code += ai->toString();
+	if (isFloat) {
+		// alloc a caller-save, float reg
+		destReg = rm->getReg(true, true);
+		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
+		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg2);
+		dest = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, destReg);
+
+		switch (opcode) {
+			case OpNode::OpCode::UMINUS:
+				fai = new FloatArithIns(ArithIns::ArithInsType::FNEG, arg1, NULL, dest);
+				break;
+			case OpNode::OpCode::UMINUS:
+				break;
+			case OpNode::OpCode::UMINUS:
+				break;
+			case OpNode::OpCode::UMINUS:
+				break;
+			case OpNode::OpCode::UMINUS:
+				break;
+			case OpNode::OpCode::UMINUS:
+				break;
+			case OpNode::OpCode::UMINUS:
+				break;
+			case OpNode::OpCode::UMINUS:
+				break;
+			case OpNode::OpCode::UMINUS:
+				break;
+			case OpNode::OpCode::UMINUS:
+				break;
+			case OpNode::OpCode::UMINUS:
+				break;
+			case OpNode::OpCode::UMINUS:
+				break;
+		}
+	}
+	
 	return code;
 }
 
