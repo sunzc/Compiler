@@ -429,6 +429,7 @@ string OpNode::codeGen(RegManager *rm) {
 	int tmpReg1, tmpReg2, destReg;
 	unsigned int arity, i;
 	bool isFloat = false;
+	bool useDestReg = false;
 	const Type *ctype = this->coercedType();
 	const Type *type = this->type();
 	Instruction::Operand *arg1, *arg2, *dest;
@@ -470,33 +471,162 @@ string OpNode::codeGen(RegManager *rm) {
 
 		switch (opcode) {
 			case OpNode::OpCode::UMINUS:
-				fai = new FloatArithIns(ArithIns::ArithInsType::FNEG, arg1, NULL, dest);
+				fai = new FloatArithIns(FLoatArithIns::FloatArithInsType::FNEG, arg1, NULL, dest);
+				useDestReg = true;
 				break;
-			case OpNode::OpCode::UMINUS:
+			case OpNode::OpCode::PLUS:
+				fai = new FloatArithIns(FLoatArithIns::FloatArithInsType::FADD, arg1, arg2, dest);
+				useDestReg = true;
 				break;
-			case OpNode::OpCode::UMINUS:
+			case OpNode::OpCode::MINUS:
+				fai = new FloatArithIns(FLoatArithIns::FloatArithInsType::FSUB, arg1, arg2, dest);
+				useDestReg = true;
 				break;
-			case OpNode::OpCode::UMINUS:
+			case OpNode::OpCode::DIV:
+				fai = new FloatArithIns(FLoatArithIns::FloatArithInsType::FDIV, arg1, arg2, dest);
+				useDestReg = true;
 				break;
-			case OpNode::OpCode::UMINUS:
+			case OpNode::OpCode::MULT:
+				fai = new FloatArithIns(FLoatArithIns::FloatArithInsType::FMULT, arg1, arg2, dest);
+				useDestReg = true;
 				break;
-			case OpNode::OpCode::UMINUS:
+			case OpNode::OpCode::EQ:
+				fai = new FloatRelOpIns(FLoatRelOpIns::FloatRelOpInsType::FEQ, arg1, arg2);
+				useDestReg = false;
 				break;
-			case OpNode::OpCode::UMINUS:
+			case OpNode::OpCode::NE:
+				fai = new FloatRelOpIns(FLoatRelOpIns::FloatRelOpInsType::FNE, arg1, arg2);
+				useDestReg = false;
 				break;
-			case OpNode::OpCode::UMINUS:
+			case OpNode::OpCode::GT:
+				fai = new FloatRelOpIns(FLoatRelOpIns::FloatRelOpInsType::FGT, arg1, arg2);
+				useDestReg = false;
 				break;
-			case OpNode::OpCode::UMINUS:
+			case OpNode::OpCode::GE:
+				fai = new FloatRelOpIns(FLoatRelOpIns::FloatRelOpInsType::FGE, arg1, arg2);
+				useDestReg = false;
 				break;
-			case OpNode::OpCode::UMINUS:
+			// NOTE! we don't have FLT Instruction! use FGT instead
+			case OpNode::OpCode::LT:
+				fai = new FloatRelOpIns(FLoatRelOpIns::FloatRelOpInsType::FGT, arg2, arg1);
+				useDestReg = false;
 				break;
-			case OpNode::OpCode::UMINUS:
+			case OpNode::OpCode::LE:
+				fai = new FloatRelOpIns(FLoatRelOpIns::FloatRelOpInsType::FGE, arg2, arg1);
+				useDestReg = false;
 				break;
+			default:
+				break;
+			// TODO handle assignment separately
+			// TODO handle print separately
+			//case OpNode::OpCode::ASSIGN:
+			//	fai = new MovIns(MovIns::MovInsType::MOVF, arg1, dest);
+			//	break;
+		}
+		// TODO
+		// handle other things
+		code += fai->toString();
+		if (!useDestReg) {
+			rm->releaseReg(dest, true);
+		}
+		// TODO
+		// release op1, op2 when necessary
+	} else {
+		// alloc a caller-save, integer reg
+		destReg = rm->getReg(true, false);
+		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
+		dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, destReg);
+
+		switch (opcode) {
 			case OpNode::OpCode::UMINUS:
+				ai = new ArithIns(ArithIns::ArithInsType::NEG, arg1, NULL, dest);
+				useDestReg = true;
+				break;
+			case OpNode::OpCode::PLUS:
+				ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
+				useDestReg = true;
+				break;
+			case OpNode::OpCode::MINUS:
+				ai = new ArithIns(ArithIns::ArithInsType::SUB, arg1, arg2, dest);
+				useDestReg = true;
+				break;
+			case OpNode::OpCode::DIV:
+				ai = new ArithIns(ArithIns::ArithInsType::DIV, arg1, arg2, dest);
+				useDestReg = true;
+				break;
+			case OpNode::OpCode::MULT:
+				ai = new ArithIns(ArithIns::ArithInsType::MULT, arg1, arg2, dest);
+				useDestReg = true;
+				break;
+			case OpNode::OpCode::MOD:
+				ai = new ArithIns(ArithIns::ArithInsType::MOD, arg1, arg2, dest);
+				useDestReg = true;
+				break;
+			case OpNode::OpCode::BITAND:
+				ai = new ArithIns(ArithIns::ArithInsType::AND, arg1, arg2, dest);
+				useDestReg = true;
+				break;
+			case OpNode::OpCode::BITOR:
+				ai = new ArithIns(ArithIns::ArithInsType::OR, arg1, arg2, dest);
+				useDestReg = true;
+				break;
+			case OpNode::OpCode::BITXOR:
+				ai = new ArithIns(ArithIns::ArithInsType::XOR, arg1, arg2, dest);
+				useDestReg = true;
+				break;
+			case OpNode::OpCode::BITNOT:
+				// TODO
+				// BITNOT can be implementated using XOR arg1 1111
+			case OpNode::OpCode::SHL:
+				// TODO
+				// SHL can be implementated using repeat 'MUL arg1 2' arg2 times
+			case OpNode::OpCode::SHR:
+				// TODO
+				// SHR can be implementated using repeat 'DIV arg1 2' arg2 times
+			case OpNode::OpCode::PRINT:
+				// TODO
+				// PRINT is not supported from lex parser ast type check to now
+				useDestReg = true;
+				break;
+			case OpNode::OpCode::EQ:
+				ai = new RelOpIns(RelOpIns::RelOpInsType::EQ, arg1, arg2);
+				useDestReg = false;
+				break;
+			case OpNode::OpCode::NE:
+				ai = new RelOpIns(RelOpIns::RelOpInsType::NE, arg1, arg2);
+				useDestReg = false;
+				break;
+			case OpNode::OpCode::GT:
+				ai = new RelOpIns(RelOpIns::RelOpInsType::GT, arg1, arg2);
+				useDestReg = false;
+				break;
+			case OpNode::OpCode::GE:
+				ai = new RelOpIns(RelOpIns::RelOpInsType::GE, arg1, arg2);
+				useDestReg = false;
+				break;
+			// NOTE! we don't have FLT Instruction! use FGT instead
+			case OpNode::OpCode::LT:
+				ai = new RelOpIns(RelOpIns::RelOpInsType::GT, arg2, arg1);
+				useDestReg = false;
+				break;
+			case OpNode::OpCode::LE:
+				ai = new RelOpIns(RelOpIns::RelOpInsType::GE, arg2, arg1);
+				useDestReg = false;
+				break;
+			default:
 				break;
 		}
+		// TODO
+		// handel other cases
+		code += ai->toString();
+		if (!useDestReg) {
+			rm->releaseReg(dest, false);
+		}
+		// TODO
+		// release op1, op2 when necessary
 	}
-	
+
 	return code;
 }
 
