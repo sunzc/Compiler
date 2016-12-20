@@ -75,10 +75,21 @@ class AstNode: public ProgramElem {
   virtual bool operator==(const AstNode&) const { return false; };
   virtual bool operator!=(const AstNode& a) const 
   { return !operator==(a); };
+
+  static string getLabel() {
+	string label = NULL;
+
+	label +=  "L";
+	label += std::to_string(labelCount);
+	labelCount ++;
+
+	return label;
+  }
   
  private: 
   NodeType nodeType_;
   const AstNode* operator=(const AstNode& other); /* disable asg */
+  static int labelCount;
 };
 
 inline ostream& operator<<(ostream& os, const AstNode& an) {

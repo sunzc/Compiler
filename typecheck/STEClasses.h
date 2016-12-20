@@ -141,6 +141,7 @@ class FunctionEntry: public SymTabEntry {
   string codeGen(RegManager *rm);
   void regManager(RegManager *rm) { rm_ = rm;};
   RegManager *regManager() { return rm_;};
+  string getFuncLabel() { return this->name();};
 
  private:
   CompoundStmtNode* body_;

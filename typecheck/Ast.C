@@ -7,6 +7,7 @@
 // where only assignments to global variable is allowed when in rule scope
 bool inRuleScope = false;
 extern int REG_BP;
+extern int REG_SP;
 
 AstNode::AstNode(NodeType nt, int line, int column, string file):
   ProgramElem(NULL, line, column, file) {
@@ -1256,6 +1257,99 @@ void InvocationNode::typePrint(ostream& os, int indent) const{
 string InvocationNode::codeGen(RegManager *rm) {
 	string code;
 	// TODO
+	// get number of arguments
+	int tmpReg1, tmpReg2, paramReg, resReg;
+	bool isFloat = false;
+	const SymTabEntry *ste = this->symTabEntry();
+	const Type *ftype = ste->type();
+	const Type *ctype = this->coercedType();
+	const Type *type = this->type();
+	ArithIns *ai;
+	MovIns *mi;
+	JumpIns *ji;
+	Instruction::Operand *arg1, *arg2, *dest;
+	const vector<ExprNode *> * params = this->params();
+	ExprNode *param;
+	int arity = params->size();
+	int i;
+
+	// prepare parameters
+	for( i = 0; i < arity; i++) {
+		param = this->param(i);
+		code += param->codeGen(rm);
+	}
+
+	// pass parameters via stack in reverse order
+	for( i = arity - 1; i>=0; i--) {
+		param = this->param(i);
+		//inst1: STI/F tmpReg1 SP
+		isFloat = param->isFloat();
+		tmpReg1 = param->getTmpReg();
+
+		if (isFloat) {
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+			mi = new MovIns(MovIns::MovInsType::STF, arg1, arg2);
+		} else {
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+			mi = new MovIns(MovIns::MovInsType::STI, arg1, arg2);
+		}
+
+		code += mi->toString();
+
+		// check whether recyclable, and recycle tmpReg1
+		if(param->isRecyclable())
+			rm->releaseReg(tmpReg1,isFloat);
+
+		//inst2: SUB SP 1 SP
+		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+		dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+		ai = new ArithIns(ArithIns::ArithInsType::SUB, arg1, arg2, dest);
+
+		code += ai->toString();
+	}
+
+	// get return address(Ret label) and store return address on stack
+	// inst1: MOVL label tmpReg1
+	string label = AstNode::getLabel();
+	// alloc a caller-save, int reg
+	tmpReg1 = rm->getReg(true, false);
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, label);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+	mi = new MovIns(MovIns::MovInsType::MOVL, arg1, arg2);
+	code += mi->toString();
+
+	// inst2: STI tmpReg1 SP
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	mi = new MovIns(MovIns::MovInsType::STI, arg1, arg2);
+	code += mi->toString();
+
+	// it's safe to release tmpReg1 here.
+	rm->releaseReg(tmpReg1, false);
+
+	// inst3: SUB SP 1 SP
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+	dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	ai = new ArithIns(ArithIns::ArithInsType::SUB, arg1, arg2, dest);
+	code += ai->toString();
+
+	// do the function call
+	// JMP func_label
+	string func_label = ((FunctionEntry *)ste)->getFuncLabel();
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, func_label);
+	ji = new JumpIns(JumpIns::JumpInsType::JMP, NULL, arg1);
+	code += ji->toString();
+
+	// add label for next instruction
+	code += label + ": ";
+
+	// if return type is not VOID keep return value
+	// TODO
+
 	return code;
 }
 
