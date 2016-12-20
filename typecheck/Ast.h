@@ -447,6 +447,7 @@ class ReturnStmtNode: public StmtNode {
 	if(expr_ != NULL) expr_->typePrint(os, indent); else os << "NULL";
   };
   string codeGen(RegManager *rm);
+  FunctionEntry * funcEntry() { return fun_;};
 
  private:
   ExprNode* expr_;

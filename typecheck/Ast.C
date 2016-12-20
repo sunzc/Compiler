@@ -1278,6 +1278,10 @@ string InvocationNode::codeGen(RegManager *rm) {
 		code += param->codeGen(rm);
 	}
 
+	// TODO
+	// release registers used by parameters
+	// before function call, push caller-save register + REG_RA
+
 	// pass parameters via stack in reverse order
 	for( i = arity - 1; i>=0; i--) {
 		param = this->param(i);
@@ -1345,6 +1349,9 @@ string InvocationNode::codeGen(RegManager *rm) {
 
 	// add label for next instruction
 	code += label + ": ";
+
+	// TODO
+	// after function call recover caller-save registes + RET_RA
 
 	// if return type is not VOID keep return value
 	if (retType->tag() != Type::TypeTag::VOID) {
@@ -1662,8 +1669,39 @@ const Type* ReturnStmtNode::typeCheck() {
 	return retType;
 }
 
+// stack frame:
+// +---------+
+// | p2      |
+// | p1      |
+// | ret addr|  REG_RA
+// | rbp     |
+// +---------+
 string ReturnStmtNode::codeGen(RegManager *rm) {
 	string code;
-	// TODO
+	ExprNode *retVal;
+	int tmpReg1, resReg;
+	bool isFloat = false;
+	FunctionEntry *fe = this->funcEntry();
+	const Type *ftype = fe->type();
+	const Type *retType = ftype->retType();
+	ArithIns *ai;
+	MovIns *mi;
+	JumpIns *ji;
+	Instruction::Operand *arg1, *arg2, *dest;
+	int arity = ftype->arity();
+	int i;
+
+	// 0. restore callee save register + rbp
+	// 1. prepare ret val
+	// 2. restore rsp (rsp = rsp - #param - 1(ret addr)
+	// 3. jump to ret address
+	// NOTE: ret addr stored in REG_RA
+
+	// TODO restore callee save register + rbp
+
+	// prepare ret val
+	// inst1: MOVI/F regTmp REG_RV
+	//tmpReg1 = expr
+
 	return code;
 }
