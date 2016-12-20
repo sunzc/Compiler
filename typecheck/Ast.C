@@ -9,6 +9,7 @@ bool inRuleScope = false;
 extern int REG_BP;
 extern int REG_SP;
 extern int REG_RV;
+extern int REG_RA;
 
 AstNode::AstNode(NodeType nt, int line, int column, string file):
   ProgramElem(NULL, line, column, file) {
@@ -1678,18 +1679,13 @@ const Type* ReturnStmtNode::typeCheck() {
 // +---------+
 string ReturnStmtNode::codeGen(RegManager *rm) {
 	string code;
-	ExprNode *retVal;
-	int tmpReg1, resReg;
+	int tmpReg1;
 	bool isFloat = false;
-	FunctionEntry *fe = this->funcEntry();
-	const Type *ftype = fe->type();
-	const Type *retType = ftype->retType();
-	ArithIns *ai;
 	MovIns *mi;
+	ArithIns *ai;
 	JumpIns *ji;
 	Instruction::Operand *arg1, *arg2, *dest;
-	int arity = ftype->arity();
-	int i;
+	int arity = fun_->type()->arity();
 
 	// 0. restore callee save register + rbp
 	// 1. prepare ret val
@@ -1701,7 +1697,34 @@ string ReturnStmtNode::codeGen(RegManager *rm) {
 
 	// prepare ret val
 	// inst1: MOVI/F regTmp REG_RV
-	//tmpReg1 = expr
+	if (expr_ != NULL) {
+		code += expr_->codeGen(rm);
+		tmpReg1 = expr_->getTmpReg();
+		isFloat = expr_->isFloat();
+		if (isFloat) {
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, REG_RV);
+			mi = new MovIns(MovIns::MovInsType::MOVF, arg1, arg2);
+		} else {
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_RV);
+			mi = new MovIns(MovIns::MovInsType::MOVI, arg1, arg2);
+		}
+		code += mi->toString();
+		rm->releaseReg(tmpReg1, isFloat);
+	}
+
+	// restore RSP : SP += #params + 1
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1 + arity);
+	dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
+	code += ai->toString();
+
+	// jmp to RA
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_RA);
+	ji = new JumpIns(JumpIns::JumpInsType::JMP, NULL, arg1);
+	code += ji->toString();
 
 	return code;
 }
