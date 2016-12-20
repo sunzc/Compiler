@@ -70,8 +70,6 @@ class AstNode: public ProgramElem {
   virtual void typePrint(ostream& os, int indent=0) const=0;
   virtual void print(ostream& os, int indent=0) const=0;
   virtual string codeGen(RegManager *rm) {return NULL;};
-  virtual int getTempReg() {return 0;};
-  virtual bool isFloat() { return false;};
 
   virtual void renameRV(string prefix) {}; // new names start with given prefix
   virtual bool operator==(const AstNode&) const { return false; };
@@ -118,11 +116,17 @@ class ExprNode: public AstNode {
 
   void print(ostream& os, int indent=0) const=0;
   void typePrint(ostream& os, int indent=0) const=0;
+  void setTmpReg(int tmpReg) { tmpReg_ = tmpReg;};
+  void setIsFloat(bool isFloat) { isFloat_ = isFloat;};
+  int getTmpReg() { return tmpReg_;};
+  bool isFloat() { return isFloat_;};
 
  private:
   ExprNodeType exprType_;
   const Value *val_; // reference semantics for val_ and coercedType_
   const Type* coercedType_; 
+  bool isFloat_;
+  int tmpReg_;
 };
 
 /****************************************************************/

@@ -50,7 +50,7 @@ string GlobalEntry::codeGen(RegManager *rm) {
 					initCode += mi->toString();
 					
 					// inst2: STI/F tmpReg2 tmpReg1
-					tmpReg2 =  initVal->getTempReg();
+					tmpReg2 =  initVal->getTmpReg();
 					isFloat = initVal->isFloat();
 					if (isFloat) {
 						arg1 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg2);
@@ -88,6 +88,8 @@ string GlobalEntry::codeGen(RegManager *rm) {
 			i++;
 		}
 	}
+
+	return initCode + funcCode + ruleCode;
 }
 
 void GlobalEntry::memAlloc() {
