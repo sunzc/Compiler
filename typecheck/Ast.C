@@ -430,13 +430,15 @@ string OpNode::codeGen(RegManager *rm) {
 	unsigned int arity, i;
 	bool isFloat = false;
 	bool useDestReg = false;
-	const Type *ctype = this->coercedType();
+	//const Type *ctype = this->coercedType();
 	const Type *type = this->type();
 	Instruction::Operand *arg1, *arg2, *dest;
 	ExprNode *op1, *op2, *op;
-	MovIns *mi;
-	ArithIns *ai;
-	FloatArithIns *fai;
+	//MovIns *mi;
+	ArithIns *ai = NULL;
+	RelOpIns *roi = NULL;
+	FloatArithIns *fai = NULL;
+	FloatRelOpIns *froi = NULL;
 	OpNode::OpCode opcode = this->opCode();
 
 	// inherit existing code
@@ -471,48 +473,48 @@ string OpNode::codeGen(RegManager *rm) {
 
 		switch (opcode) {
 			case OpNode::OpCode::UMINUS:
-				fai = new FloatArithIns(FLoatArithIns::FloatArithInsType::FNEG, arg1, NULL, dest);
+				fai = new FloatArithIns(FloatArithIns::FloatArithInsType::FNEG, arg1, NULL, dest);
 				useDestReg = true;
 				break;
 			case OpNode::OpCode::PLUS:
-				fai = new FloatArithIns(FLoatArithIns::FloatArithInsType::FADD, arg1, arg2, dest);
+				fai = new FloatArithIns(FloatArithIns::FloatArithInsType::FADD, arg1, arg2, dest);
 				useDestReg = true;
 				break;
 			case OpNode::OpCode::MINUS:
-				fai = new FloatArithIns(FLoatArithIns::FloatArithInsType::FSUB, arg1, arg2, dest);
+				fai = new FloatArithIns(FloatArithIns::FloatArithInsType::FSUB, arg1, arg2, dest);
 				useDestReg = true;
 				break;
 			case OpNode::OpCode::DIV:
-				fai = new FloatArithIns(FLoatArithIns::FloatArithInsType::FDIV, arg1, arg2, dest);
+				fai = new FloatArithIns(FloatArithIns::FloatArithInsType::FDIV, arg1, arg2, dest);
 				useDestReg = true;
 				break;
 			case OpNode::OpCode::MULT:
-				fai = new FloatArithIns(FLoatArithIns::FloatArithInsType::FMULT, arg1, arg2, dest);
+				fai = new FloatArithIns(FloatArithIns::FloatArithInsType::FMUL, arg1, arg2, dest);
 				useDestReg = true;
 				break;
 			case OpNode::OpCode::EQ:
-				fai = new FloatRelOpIns(FLoatRelOpIns::FloatRelOpInsType::FEQ, arg1, arg2);
+				froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FEQ, arg1, arg2);
 				useDestReg = false;
 				break;
 			case OpNode::OpCode::NE:
-				fai = new FloatRelOpIns(FLoatRelOpIns::FloatRelOpInsType::FNE, arg1, arg2);
+				froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FNE, arg1, arg2);
 				useDestReg = false;
 				break;
 			case OpNode::OpCode::GT:
-				fai = new FloatRelOpIns(FLoatRelOpIns::FloatRelOpInsType::FGT, arg1, arg2);
+				froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FGT, arg1, arg2);
 				useDestReg = false;
 				break;
 			case OpNode::OpCode::GE:
-				fai = new FloatRelOpIns(FLoatRelOpIns::FloatRelOpInsType::FGE, arg1, arg2);
+				froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FGE, arg1, arg2);
 				useDestReg = false;
 				break;
 			// NOTE! we don't have FLT Instruction! use FGT instead
 			case OpNode::OpCode::LT:
-				fai = new FloatRelOpIns(FLoatRelOpIns::FloatRelOpInsType::FGT, arg2, arg1);
+				froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FGT, arg2, arg1);
 				useDestReg = false;
 				break;
 			case OpNode::OpCode::LE:
-				fai = new FloatRelOpIns(FLoatRelOpIns::FloatRelOpInsType::FGE, arg2, arg1);
+				froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FGE, arg2, arg1);
 				useDestReg = false;
 				break;
 			default:
@@ -525,9 +527,12 @@ string OpNode::codeGen(RegManager *rm) {
 		}
 		// TODO
 		// handle other things
-		code += fai->toString();
+		if (fai != NULL)
+			code += fai->toString();
+		if (froi != NULL)
+			code += froi->toString();
 		if (!useDestReg) {
-			rm->releaseReg(dest, true);
+			rm->releaseReg(destReg, true);
 		}
 		// TODO
 		// release op1, op2 when necessary
@@ -556,7 +561,7 @@ string OpNode::codeGen(RegManager *rm) {
 				useDestReg = true;
 				break;
 			case OpNode::OpCode::MULT:
-				ai = new ArithIns(ArithIns::ArithInsType::MULT, arg1, arg2, dest);
+				ai = new ArithIns(ArithIns::ArithInsType::MUL, arg1, arg2, dest);
 				useDestReg = true;
 				break;
 			case OpNode::OpCode::MOD:
@@ -590,28 +595,28 @@ string OpNode::codeGen(RegManager *rm) {
 				useDestReg = true;
 				break;
 			case OpNode::OpCode::EQ:
-				ai = new RelOpIns(RelOpIns::RelOpInsType::EQ, arg1, arg2);
+				roi = new RelOpIns(RelOpIns::RelOpInsType::EQ, arg1, arg2);
 				useDestReg = false;
 				break;
 			case OpNode::OpCode::NE:
-				ai = new RelOpIns(RelOpIns::RelOpInsType::NE, arg1, arg2);
+				roi = new RelOpIns(RelOpIns::RelOpInsType::NE, arg1, arg2);
 				useDestReg = false;
 				break;
 			case OpNode::OpCode::GT:
-				ai = new RelOpIns(RelOpIns::RelOpInsType::GT, arg1, arg2);
+				roi = new RelOpIns(RelOpIns::RelOpInsType::GT, arg1, arg2);
 				useDestReg = false;
 				break;
 			case OpNode::OpCode::GE:
-				ai = new RelOpIns(RelOpIns::RelOpInsType::GE, arg1, arg2);
+				roi = new RelOpIns(RelOpIns::RelOpInsType::GE, arg1, arg2);
 				useDestReg = false;
 				break;
 			// NOTE! we don't have FLT Instruction! use FGT instead
 			case OpNode::OpCode::LT:
-				ai = new RelOpIns(RelOpIns::RelOpInsType::GT, arg2, arg1);
+				roi = new RelOpIns(RelOpIns::RelOpInsType::GT, arg2, arg1);
 				useDestReg = false;
 				break;
 			case OpNode::OpCode::LE:
-				ai = new RelOpIns(RelOpIns::RelOpInsType::GE, arg2, arg1);
+				roi = new RelOpIns(RelOpIns::RelOpInsType::GE, arg2, arg1);
 				useDestReg = false;
 				break;
 			default:
@@ -619,9 +624,12 @@ string OpNode::codeGen(RegManager *rm) {
 		}
 		// TODO
 		// handel other cases
-		code += ai->toString();
+		if (ai != NULL)
+			code += ai->toString();
+		if (roi != NULL)
+			code += roi->toString();
 		if (!useDestReg) {
-			rm->releaseReg(dest, false);
+			rm->releaseReg(destReg, false);
 		}
 		// TODO
 		// release op1, op2 when necessary
@@ -916,8 +924,93 @@ void ValueNode::typePrint(ostream& os, int indent) const{
 }
 
 string ValueNode::codeGen(RegManager *rm) {
-	string code;
-	// TODO
+	string code = NULL;
+	int tmpReg1;
+	const Value *val;
+	bool isFloat = false;
+	bool bVal;
+	bool error = false;
+	int iVal;
+	string sVal;
+	double dVal;
+	const Type *ctype = this->coercedType();
+	Type::TypeTag tag;
+	Instruction::Operand *arg1, *arg2;
+	MovIns *mi;
+
+	val = this->value();
+
+	if (ctype == NULL)
+		ctype = this->type();
+
+	tag = ctype->tag();
+	switch(tag) {
+		case Type::TypeTag::BOOL:
+			bVal = val->bval();
+			if (bVal == true) {
+				arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+			} else {
+				arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 0);
+			}
+			break;
+		case Type::TypeTag::BYTE:
+		case Type::TypeTag::UINT:
+		case Type::TypeTag::INT:
+			iVal = val->ival();
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, iVal);
+			break;
+		case Type::TypeTag::STRING:
+			sVal = val->sval();
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, sVal);
+			break;
+		case Type::TypeTag::DOUBLE:
+			dVal = val->dval();
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_CONST, (float)dVal);
+			isFloat = true;
+			break;
+		default:
+			std::cout<<"ERROR:Unknown type for ValueNode!"<<std::endl;
+			error = true;
+			break;
+	}
+
+	switch(tag) {
+		case Type::TypeTag::BOOL:
+		case Type::TypeTag::BYTE:
+		case Type::TypeTag::UINT:
+		case Type::TypeTag::INT:
+			// alloc a caller-save, integer reg
+			tmpReg1 = rm->getReg(true, false);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+			mi = new MovIns(MovIns::MovInsType::MOVI, arg1, arg2);
+			break;
+		case Type::TypeTag::STRING:
+			// alloc a caller-save, integer reg
+			tmpReg1 = rm->getReg(true, false);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+			mi = new MovIns(MovIns::MovInsType::MOVS, arg1, arg2);
+			break;
+		case Type::TypeTag::DOUBLE:
+			// alloc a caller-save, float reg
+			tmpReg1 = rm->getReg(true, true);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
+			mi = new MovIns(MovIns::MovInsType::MOVF, arg1, arg2);
+			break;
+		default:
+			std::cout<<"ERROR:Unknown type for ValueNode!"<<std::endl;
+			error = true;
+			break;
+	}
+
+	if (error)
+		return NULL;
+
+	this->setTmpReg(tmpReg1);
+	this->setIsRecyclable(true);
+	this->setIsFloat(isFloat);
+
+	code += mi->toString();
+
 	return code;
 }
 
