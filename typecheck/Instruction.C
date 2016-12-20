@@ -45,7 +45,10 @@ std::string ArithIns::toString(){
 			break;
 	}
 
-	inst += arg1_->toString() + " " + arg2_->toString() + " " + dest_->toString()+"\n";
+	if (arg2_ != NULL) // not NEG
+		inst += arg1_->toString() + " " + arg2_->toString() + " " + dest_->toString()+"\n";
+	else
+		inst += arg1_->toString() + " " + dest_->toString()+"\n";
 
 	return inst;
 }
@@ -82,7 +85,10 @@ std::string FloatArithIns::toString(){
 			break;
 	}
 
-	inst += arg1_->toString() + " " + arg2_->toString() + " " + dest_->toString() + "\n";
+	if (arg2_ != NULL) // not NEG
+		inst += arg1_->toString() + " " + arg2_->toString() + " " + dest_->toString()+"\n";
+	else
+		inst += arg1_->toString() + " " + dest_->toString()+"\n";
 
 	return inst;
 }

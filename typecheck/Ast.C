@@ -425,7 +425,7 @@ OpNode::typePrint(ostream& os, int indent) const {
 }
 
 string OpNode::codeGen(RegManager *rm) {
-	string code;
+	string code = NULL;
 	// TODO
 	return code;
 }
