@@ -1,9 +1,11 @@
 #include "RegManager.h"
 
 // define 
-int REG_RT = 900;
+int REG_RA = 900;
 int REG_BP = 901;
 int REG_SP = 902;
+// Return Value stored in R/F903
+int REG_RV = 903;
 
 RegManager::RegManager() {
 	int i;
@@ -34,7 +36,7 @@ int RegManager::getReg(bool isCallerSave, bool isFloat) {
 		ret = freeCalleeSFR_.front();
 		freeCalleeSFR_.pop_front();
 		inUseCalleeSFR_.push_back(ret);
-	} else if (!isCallerSave && !isFloat) {
+	} else {
 		ret = freeCalleeSIR_.front();
 		freeCalleeSIR_.pop_front();
 		inUseCalleeSIR_.push_back(ret);
@@ -68,7 +70,7 @@ void RegManager::releaseReg(int regNum, bool isFloat) {
 	} else if (!isCaller && isFloat) {
 		inUseCalleeSFR_.remove(regNum);
 		freeCalleeSFR_.push_back(regNum);
-	} else if (!isCaller && !isFloat) {
+	} else {
 		inUseCalleeSIR_.remove(regNum);
 		freeCalleeSIR_.push_back(regNum);
 	}

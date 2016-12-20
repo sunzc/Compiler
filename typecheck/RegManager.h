@@ -14,6 +14,7 @@
  * Return Address: R900
  * BP: R901
  * SP: R902
+ * RT: R903/F903 depends on retval type
  */
 
 #define CALLER_START	0

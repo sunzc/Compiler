@@ -8,6 +8,7 @@
 bool inRuleScope = false;
 extern int REG_BP;
 extern int REG_SP;
+extern int REG_RV;
 
 AstNode::AstNode(NodeType nt, int line, int column, string file):
   ProgramElem(NULL, line, column, file) {
@@ -1256,14 +1257,12 @@ void InvocationNode::typePrint(ostream& os, int indent) const{
 
 string InvocationNode::codeGen(RegManager *rm) {
 	string code;
-	// TODO
-	// get number of arguments
-	int tmpReg1, tmpReg2, paramReg, resReg;
+	int tmpReg1, resReg;
 	bool isFloat = false;
 	const SymTabEntry *ste = this->symTabEntry();
 	const Type *ftype = ste->type();
 	const Type *ctype = this->coercedType();
-	const Type *type = this->type();
+	const Type *retType = ftype->retType();
 	ArithIns *ai;
 	MovIns *mi;
 	JumpIns *ji;
@@ -1348,7 +1347,45 @@ string InvocationNode::codeGen(RegManager *rm) {
 	code += label + ": ";
 
 	// if return type is not VOID keep return value
-	// TODO
+	if (retType->tag() != Type::TypeTag::VOID) {
+		// need to store retVal in tmp reg
+		if (retType->tag() != Type::TypeTag::DOUBLE) {
+			if (ctype == NULL || ctype ->tag() != Type::TypeTag::DOUBLE) {
+				// alloc a caller-save, int reg
+				resReg = rm->getReg(true, false);
+				// inst1: MOVI REG_RV resReg
+				arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_RV);
+				arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+				mi = new MovIns(MovIns::MovInsType::MOVI, arg1, arg2);
+				code += mi->toString();
+				isFloat = false;
+			} else {
+				// alloc a caller-save, float reg
+				resReg = rm->getReg(true, true);
+				// inst1: MOVIF REG_RV resReg
+				arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_RV);
+				arg2 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
+				mi = new MovIns(MovIns::MovInsType::MOVIF, arg1, arg2);
+				code += mi->toString();
+				isFloat = true;
+			}
+		} else {
+				// alloc a caller-save, float reg
+				resReg = rm->getReg(true, true);
+				// inst1: MOVF REG_RV resReg
+				arg1 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, REG_RV);
+				arg2 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
+				mi = new MovIns(MovIns::MovInsType::MOVF, arg1, arg2);
+				code += mi->toString();
+				isFloat = true;
+		}
+
+		this->setTmpReg(resReg);
+		this->setIsFloat(isFloat);
+		this->setIsRecyclable(true);
+
+		code += mi->toString();
+	}
 
 	return code;
 }
