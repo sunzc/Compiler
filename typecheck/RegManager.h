@@ -12,6 +12,8 @@
  * F500 - F899: callee save
  * R900 - R999: reserved for special use
  * Return Address: R900
+ * BP: R901
+ * SP: R902
  */
 
 #define CALLER_START	0

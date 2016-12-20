@@ -1,10 +1,12 @@
 #include "Ast.h"					
 #include "ParserUtil.h"					
+#include "Instruction.h"
 #define MAXBUF	256
 
 // indicate we are in the scope of rule, to allievate the check of assignments
 // where only assignments to global variable is allowed when in rule scope
 bool inRuleScope = false;
+extern int REG_BP;
 
 AstNode::AstNode(NodeType nt, int line, int column, string file):
   ProgramElem(NULL, line, column, file) {
@@ -422,6 +424,12 @@ OpNode::typePrint(ostream& os, int indent) const {
   else internalErr("Unhandled case in OpNode::print");
 }
 
+string OpNode::codeGen(RegManager *rm) {
+	string code;
+	// TODO
+	return code;
+}
+
 PrimitivePatNode::PrimitivePatNode(EventEntry* ee, vector<VariableEntry*>* params,
 				   ExprNode* c,
 				   int line, int column, string file):
@@ -707,6 +715,12 @@ void ValueNode::typePrint(ostream& os, int indent) const{
 	this->value()->typePrint(os, indent);
 }
 
+string ValueNode::codeGen(RegManager *rm) {
+	string code;
+	// TODO
+	return code;
+}
+
 RefExprNode::RefExprNode(string ext, const SymTabEntry* ste,
 	      int line, int column, string file):
 	ExprNode(ExprNode::ExprNodeType::REF_EXPR_NODE, NULL, line, column, file){
@@ -739,6 +753,109 @@ RefExprNode::RefExprNode(const RefExprNode& ren):
 	ExprNode(ExprNode::ExprNodeType::REF_EXPR_NODE){
 	ext_ = ren.ext();
 	sym_ = ren.symTabEntry();
+}
+
+string RefExprNode::codeGen(RegManager *rm) {
+	// for local/global variable : load var into caller-save tmp reg
+	// for param variable: move value from param var reg to caller saved tmp reg(in case coerced type)
+	string code = NULL;
+	int tmpReg1, tmpReg2, paramReg, offset;
+	bool isFloat = false;
+	const Type *ctype = this->coercedType();
+	const Type *type = this->symTabEntry()->type();
+	Instruction::Operand *arg1, *arg2;
+	MovIns *mi;
+	ArithIns *ai;
+
+	// for parameter var, just set reg and isFloat, and return. param already loaded into reg when init function
+ 	if (((VariableEntry *)(this->symTabEntry()))->varKind() == VariableEntry::VarKind::PARAM_VAR &&
+		ctype == NULL) {
+		this->setIsFloat(((VariableEntry *)(this->symTabEntry()))->isFloat());
+		this->setTmpReg(((VariableEntry *)(this->symTabEntry()))->getTmpReg());
+		// for parameter var, the default reg is callee saved, not recyclable
+		this->setIsRecyclable(false);
+		return NULL;
+	} else if (((VariableEntry *)(this->symTabEntry()))->varKind() == VariableEntry::VarKind::PARAM_VAR &&
+		ctype != NULL) {
+
+		// only when we need to coerce type from non-float to float, we need extra code
+		if((ctype->tag() == Type::TypeTag::DOUBLE) && (type->tag() != Type::TypeTag::DOUBLE)) {
+			// inst move int to float: MOVIF intreg freg
+			paramReg = ((VariableEntry *)(this->symTabEntry()))->getTmpReg();
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, paramReg);
+			// alloc a caller-save, float reg
+			tmpReg1 = rm->getReg(true, true);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
+			mi = new MovIns(MovIns::MovInsType::MOVIF, arg1, arg2);
+			code += mi->toString();
+			this->setIsFloat(true);
+			this->setTmpReg(tmpReg1);
+			// after move the param reg value out to float reg, it is recyclable again
+			this->setIsRecyclable(true);
+			return code;
+		} else {
+			// although coerce type is required, no need to coerce type at inst level
+			this->setIsFloat(((VariableEntry *)(this->symTabEntry()))->isFloat());
+			this->setTmpReg(((VariableEntry *)(this->symTabEntry()))->getTmpReg());
+			// for parameter var, the default reg is callee saved, not recyclable
+			this->setIsRecyclable(false);
+			return NULL;
+		}
+	}
+
+	// get coerced type of this exprNode
+	if (ctype == NULL)
+		ctype = this->symTabEntry()->type();
+
+	if(ctype->tag() == Type::TypeTag::DOUBLE)
+		isFloat = true;
+	else
+		isFloat = false;
+
+	// set isFloat for this exprNode
+	this->setIsFloat(isFloat);
+
+	// inst1: MOVI offset temReg1
+	offset = ((VariableEntry *)(this->symTabEntry()))->offSet();
+	// alloc a caller-save, interger reg
+	tmpReg1 = rm->getReg(true, false);
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, offset);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+	mi = new MovIns(MovIns::MovInsType::MOVI, arg1, arg2);
+	code += mi->toString();
+
+	// if variable is local variable, offset need to be recalculated
+	// inst2: SUB BP tmpReg1 tmpReg1
+	if (((VariableEntry *)(this->symTabEntry()))->varKind() == VariableEntry::VarKind::LOCAL_VAR) {
+		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_BP);
+		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+		ai = new ArithIns(ArithIns::ArithInsType::SUB, arg1, arg2, arg2);
+		code += ai->toString();
+	}
+
+	// inst3: LDI/F temReg1 tmpReg2 
+	if (isFloat) {
+		// alloc a caller-save, float reg
+		tmpReg2 = rm->getReg(true, true);
+		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg2);
+		mi = new MovIns(MovIns::MovInsType::LDF, arg1, arg2);
+	} else {
+		// alloc a caller-save, integer reg
+		tmpReg2 = rm->getReg(true, false);
+		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
+		mi = new MovIns(MovIns::MovInsType::LDI, arg1, arg2);
+	}
+
+	rm->releaseReg(tmpReg1, false);
+	code += mi->toString();
+
+	// set tmp reg for exprNode
+	this->setTmpReg(tmpReg2);
+	this->setIsRecyclable(true);
+
+	return code;
 }
 
 InvocationNode::InvocationNode(const SymTabEntry *ste, vector<ExprNode*>* param,
@@ -843,6 +960,12 @@ void InvocationNode::typePrint(ostream& os, int indent) const{
 	os << ")";
 }
 
+string InvocationNode::codeGen(RegManager *rm) {
+	string code;
+	// TODO
+	return code;
+}
+
 IfNode::IfNode(ExprNode* cond, StmtNode* thenStmt, 
 		 StmtNode* elseStmt, int line, int column, string file):
 	StmtNode(StmtNode::StmtNodeKind::IF, line, column, file) {
@@ -945,11 +1068,12 @@ void IfNode::print(ostream& os, int indent) const{
 	}
 }
 
-string RuleNode::codeGen(RegManager *rm) {
-	// TODO
+string IfNode::codeGen(RegManager *rm) {
 	string code;
+	// TODO
 	return code;
 }
+
 RuleNode::RuleNode(BlockEntry *re, BasePatNode* pat, StmtNode* reaction, 
 	int line, int column, string file):
 	AstNode(AstNode::NodeType::RULE_NODE, line, column, file) {
@@ -991,6 +1115,12 @@ void RuleNode::print(ostream& os, int indent) const{
 	this->reaction()->print(os, indent);
 	prtSpace(os, indent);
 	os << ";;" << endl;
+}
+
+string RuleNode::codeGen(RegManager *rm) {
+	string code;
+	// TODO
+	return code;
 }
 
 void  CompoundStmtNode::typePrintWithoutBraces(ostream& os, int indent) const{
@@ -1086,6 +1216,12 @@ void  CompoundStmtNode::print(ostream& os, int indent) const{
 	}
 }
 
+string CompoundStmtNode::codeGen(RegManager *rm) {
+	string code;
+	// TODO
+	return code;
+}
+
 const Type* ReturnStmtNode::typeCheck() {
 	const Type * funType = fun_->type();
 	const Type * retType = funType->retType();
@@ -1100,4 +1236,10 @@ const Type* ReturnStmtNode::typeCheck() {
 	}
 
 	return retType;
+}
+
+string ReturnStmtNode::codeGen(RegManager *rm) {
+	string code;
+	// TODO
+	return code;
 }

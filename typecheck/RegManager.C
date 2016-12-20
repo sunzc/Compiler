@@ -1,5 +1,10 @@
 #include "RegManager.h"
 
+// define 
+int REG_RT = 900;
+int REG_BP = 901;
+int REG_SP = 902;
+
 RegManager::RegManager() {
 	int i;
 

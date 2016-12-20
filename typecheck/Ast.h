@@ -118,13 +118,16 @@ class ExprNode: public AstNode {
   void typePrint(ostream& os, int indent=0) const=0;
   void setTmpReg(int tmpReg) { tmpReg_ = tmpReg;};
   void setIsFloat(bool isFloat) { isFloat_ = isFloat;};
+  void setIsRecyclable(bool isRecyclable) { isRecyclable_ = isRecyclable;};
   int getTmpReg() { return tmpReg_;};
   bool isFloat() { return isFloat_;};
+  bool isRecyclable() { return isRecyclable_;};
 
  private:
   ExprNodeType exprType_;
   const Value *val_; // reference semantics for val_ and coercedType_
-  const Type* coercedType_; 
+  const Type* coercedType_;
+  bool isRecyclable_;
   bool isFloat_;
   int tmpReg_;
 };
@@ -149,6 +152,7 @@ class RefExprNode: public ExprNode {
 
   void print(ostream& os, int indent=0) const;
   void typePrint(ostream& os, int indent=0) const;
+  string codeGen(RegManager *rm);
 
  private:
   string ext_;
@@ -207,6 +211,7 @@ class OpNode: public ExprNode {
   const Type* typeCheck();
   void print(ostream& os, int indent=0) const;  
   void typePrint(ostream& os, int indent=0) const;  
+  string codeGen(RegManager *rm);
   
  private: 
   unsigned int arity_;
@@ -229,6 +234,7 @@ class ValueNode: public ExprNode {
   const Type* typeCheck();
   void print(ostream& os, int indent=0) const;
   void typePrint(ostream& os, int indent=0) const;
+  string codeGen(RegManager *rm);
 
  private:
   /* val_ field is already included in ExprNode, so no new data members */
@@ -260,6 +266,7 @@ class InvocationNode: public ExprNode {
   const Type* typeCheck(); 
   void print(ostream& os, int indent=0) const;
   void typePrint(ostream& os, int indent=0) const;
+  string codeGen(RegManager *rm);
 
  private:
   vector<ExprNode*>* params_;
@@ -428,6 +435,7 @@ class ReturnStmtNode: public StmtNode {
 	os << "return "; 
 	if(expr_ != NULL) expr_->typePrint(os, indent); else os << "NULL";
   };
+  string codeGen(RegManager *rm);
 
  private:
   ExprNode* expr_;
@@ -453,6 +461,7 @@ class ExprStmtNode: public StmtNode {
 	// TODO
 	if (expr_ != NULL) { expr_->typePrint(os, indent);}
   };
+  string codeGen(RegManager *rm);
 
  private:
   ExprNode* expr_;
@@ -479,6 +488,7 @@ class CompoundStmtNode: public StmtNode{
   void  print(ostream& os, int indent) const;
   void  typePrint(ostream& os, int indent) const;
   const Type* typeCheck();
+  string codeGen(RegManager *rm);
 
  private:
   CompoundStmtNode(const CompoundStmtNode&);
@@ -508,6 +518,7 @@ class IfNode: public StmtNode{
   const Type* typeCheck();
   void print(ostream& os, int indent) const;
   void typePrint(ostream& os, int indent) const;
+  string codeGen(RegManager *rm);
 
  private: 
   ExprNode *cond_;

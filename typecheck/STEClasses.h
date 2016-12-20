@@ -96,10 +96,17 @@ class VariableEntry: public SymTabEntry {
   void print(ostream& os, int indent=0) const;
   void typePrint(ostream& os, int indent=0) const;
   const Type* typeCheck();
+  void setIsFloat(bool isFloat) { isFloat_ = isFloat;};
+  bool isFloat() { return isFloat_;};
+  int getTmpReg() { return tmpReg_;};
+  void setTmpReg(int tmpReg) { tmpReg_ = tmpReg;};
 
  private:
   VarKind vkind_;
   int offSet_;
+  int tmpReg_;
+  // when initialize parameter variable, codeGen set this flag
+  bool isFloat_;
   ExprNode* initVal_;
 };
 
