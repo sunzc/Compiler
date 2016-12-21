@@ -395,7 +395,7 @@ void ClassEntry::print(ostream& os, int indent) const{
  *	6. jmp REG_RA
  */
 string FunctionEntry::codeGen(RegManager *rm) {
-	string code;
+	string code = NULL;
 	int tmpReg1, tmpReg2;
 	int localVarNum;
 	bool isFloat = false;
@@ -404,6 +404,10 @@ string FunctionEntry::codeGen(RegManager *rm) {
 	ArithIns *ai = NULL;
 	vector<int> *paramRegList = new vector<int>();
 	vector<bool> *paramRegAtrList = new vector<bool>();
+
+	// handle funcLabel
+	string funcLabel = this->getFuncLabel();
+	code += funcLabel + ": "; 
 
 	// initialize param reg list, will be used when return
 	this->paramRegList(paramRegList);
