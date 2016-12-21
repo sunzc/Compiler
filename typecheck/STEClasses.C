@@ -4,7 +4,7 @@
 #include "Instruction.h"
 
 // Global Data Memory Allocation: record current offset for global data
-int currentOffset = 0;
+int currentOffset = DATA_START;
 
 extern int REG_BP;
 extern int REG_SP;
