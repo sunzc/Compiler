@@ -142,10 +142,22 @@ class FunctionEntry: public SymTabEntry {
   void regManager(RegManager *rm) { rm_ = rm;};
   RegManager *regManager() { return rm_;};
   string getFuncLabel() { return this->name();};
+  void localVarNum(int num) { localVarNum_ = num;};
+  int localVarNum() { return localVarNum_;};
+
+  // param allocated callee-save reg list
+  void paramRegList(vector <int> *p) { paramRegList_ = p;};
+  vector <int> *paramRegList() { return paramRegList_;};
+  // param isFloat or not
+  void paramRegAtrList(vector <bool> *p) { paramRegAtrList_ = p;};
+  vector <bool> *paramRegAtrList() { return paramRegAtrList_;};
 
  private:
   CompoundStmtNode* body_;
   RegManager *rm_;
+  int localVarNum_;
+  vector <int> *paramRegList_;
+  vector <bool> *paramRegAtrList_;
 };
 
 class EventEntry: public SymTabEntry {
