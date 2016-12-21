@@ -1279,9 +1279,8 @@ string InvocationNode::codeGen(RegManager *rm) {
 		code += param->codeGen(rm);
 	}
 
+	// before function call, push caller-save register
 	// TODO
-	// release registers used by parameters
-	// before function call, push caller-save register + REG_RA
 
 	// pass parameters via stack in reverse order
 	for( i = arity - 1; i>=0; i--) {
@@ -1315,9 +1314,10 @@ string InvocationNode::codeGen(RegManager *rm) {
 		code += ai->toString();
 	}
 
-	// get return address(Ret label) and store return address on stack
-	// inst1: MOVL label tmpReg1
+	// push ret_addr onto stack
+	// get ret_addr label, inst1: MOVL label tmpReg1
 	string label = AstNode::getLabel();
+
 	// alloc a caller-save, int reg
 	tmpReg1 = rm->getReg(true, false);
 	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, label);
@@ -1325,21 +1325,21 @@ string InvocationNode::codeGen(RegManager *rm) {
 	mi = new MovIns(MovIns::MovInsType::MOVL, arg1, arg2);
 	code += mi->toString();
 
-	// inst2: STI tmpReg1 SP
+	// inst: STI tmpReg1 SP
 	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
 	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
 	mi = new MovIns(MovIns::MovInsType::STI, arg1, arg2);
 	code += mi->toString();
 
-	// it's safe to release tmpReg1 here.
-	rm->releaseReg(tmpReg1, false);
-
-	// inst3: SUB SP 1 SP
+	// inst: SUB SP 1 SP
 	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
 	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
 	dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
 	ai = new ArithIns(ArithIns::ArithInsType::SUB, arg1, arg2, dest);
 	code += ai->toString();
+
+	// it's safe to release tmpReg1 here.
+	rm->releaseReg(tmpReg1, false);
 
 	// do the function call
 	// JMP func_label
@@ -1351,8 +1351,18 @@ string InvocationNode::codeGen(RegManager *rm) {
 	// add label for next instruction
 	code += label + ": ";
 
+	// pop out func params
+	if (arity > 0)
+		//inst2: SUB SP 1 SP
+		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, arity);
+		dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+		ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
+		code += ai->toString();
+	}
+
+	// after function call recover caller-save registes
 	// TODO
-	// after function call recover caller-save registes + RET_RA
 
 	// if return type is not VOID keep return value
 	if (retType->tag() != Type::TypeTag::VOID) {
@@ -1361,6 +1371,7 @@ string InvocationNode::codeGen(RegManager *rm) {
 			if (ctype == NULL || ctype ->tag() != Type::TypeTag::DOUBLE) {
 				// alloc a caller-save, int reg
 				resReg = rm->getReg(true, false);
+
 				// inst1: MOVI REG_RV resReg
 				arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_RV);
 				arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
@@ -1370,6 +1381,7 @@ string InvocationNode::codeGen(RegManager *rm) {
 			} else {
 				// alloc a caller-save, float reg
 				resReg = rm->getReg(true, true);
+
 				// inst1: MOVIF REG_RV resReg
 				arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_RV);
 				arg2 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
@@ -1380,6 +1392,7 @@ string InvocationNode::codeGen(RegManager *rm) {
 		} else {
 				// alloc a caller-save, float reg
 				resReg = rm->getReg(true, true);
+
 				// inst1: MOVF REG_RV resReg
 				arg1 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, REG_RV);
 				arg2 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
