@@ -193,7 +193,7 @@ string GlobalEntry::codeGen(RegManager *rm) {
 		}
 	}
 
-	return globalVarInitCode + ruleInitCode + mainLoopCode + funcCode + ruleCode;
+	return stackInitCode + globalVarInitCode + ruleInitCode + mainLoopCode + funcCode + ruleCode;
 }
 
 void GlobalEntry::memAlloc() {
