@@ -383,17 +383,16 @@ void ClassEntry::print(ostream& os, int indent) const{
  *	1. push bp into stack
  *	2. move sp to bp
  *	3. sub rsp to allocate space for local vars rsp -= #local_vars
- *	4. push callee save registers(we only allocate callee save registers for func params and REG_RA)
+ *	4. push callee save registers(we only allocate callee save registers for func params)
  *	5. read param_n -> param_1 into regs
- *	6. read ret addr into REG_RA
  * So when return, we should do the following:
  *	0. calcualte ret_val
- *	1. pop REG_RA
+ *	1. mov retval REG_RV
  *	2. pop param_1 -> param_n(callee save)
  *	3. restore rsp += #local_vars
  *	4. pop bp
- *	5. mov retval REG_RV
- *	5. jmp REG_RA
+ *	5. read REG_RA
+ *	6. jmp REG_RA
  */
 string FunctionEntry::codeGen(RegManager *rm) {
 	string code;
@@ -497,7 +496,6 @@ string FunctionEntry::codeGen(RegManager *rm) {
 	ai = new ArithIns(ArithIns::ArithInsType::SUB, arg1, arg2, dest);
 	code += ai->toString();
 
-	// 5. read ret addr into REG_RA
 	// 6. read param_n -> param_1 into regs
 
 	// alloc a caller-save, int reg
@@ -509,23 +507,10 @@ string FunctionEntry::codeGen(RegManager *rm) {
 	mi = new MovIns(MovIns::MovInsType::MOVI, arg1, arg2);
 	code += mi->toString();
 
-	// point tmpReg2 --> ret_addr
-	// inst: ADD tmpReg2 2 tmpReg2
+	// point tmpReg2 --> param1
+	// inst: ADD tmpReg2 3 tmpReg2, skip blank, BP, ret_addr
 	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
-	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 2);
-	dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
-	ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
-	code += ai->toString();
-
-	// inst: LDI tmpReg2 REG_RA
-	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
-	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_RA);
-	mi = new MovIns(MovIns::MovInsType::LDI, arg1, arg2);
-	code += mi->toString();
-
-	// inst: ADD tmpReg2 1 tmpReg2 
-	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
-	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 3);
 	dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
 	ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
 	code += ai->toString();

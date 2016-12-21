@@ -1742,6 +1742,16 @@ const Type* ReturnStmtNode::typeCheck() {
 // | ret addr|  REG_RA
 // | rbp     |
 // +---------+
+/**
+ * So when return, we should do the following:
+ *	0. calcualte ret_val
+ *	1. pop REG_RA
+ *	2. pop param_1 -> param_n(callee save)
+ *	3. restore rsp += #local_vars
+ *	4. pop bp
+ *	5. mov retval REG_RV
+ *	6. jmp REG_RA
+ */
 string ReturnStmtNode::codeGen(RegManager *rm) {
 	string code;
 	int tmpReg1;
@@ -1750,7 +1760,9 @@ string ReturnStmtNode::codeGen(RegManager *rm) {
 	ArithIns *ai;
 	JumpIns *ji;
 	Instruction::Operand *arg1, *arg2, *dest;
-	int arity = fun_->type()->arity();
+	vector<int> * paramRegList = fun_->paramRegList();
+	vector<bool> * paramRegAtrList = fun_->paramRegAtrList();
+	int localVarNum;
 
 	// 0. restore callee save register + rbp
 	// 1. prepare ret val
@@ -1760,7 +1772,7 @@ string ReturnStmtNode::codeGen(RegManager *rm) {
 
 	// TODO restore callee save register + rbp
 
-	// prepare ret val
+ 	// 0. calcualte ret_val
 	// inst1: MOVI/F regTmp REG_RV
 	if (expr_ != NULL) {
 		code += expr_->codeGen(rm);
@@ -1776,15 +1788,78 @@ string ReturnStmtNode::codeGen(RegManager *rm) {
 			mi = new MovIns(MovIns::MovInsType::MOVI, arg1, arg2);
 		}
 		code += mi->toString();
-		rm->releaseReg(tmpReg1, isFloat);
+
+		if (expr_->isRecyclable())
+			rm->releaseReg(tmpReg1, isFloat);
 	}
 
-	// restore RSP : SP += #params + 1
+	// 2. pop param_n -> param_1(callee save)
+	if (paramRegList->size() > 0) {
+		auto rpit = paramRegList->rbegin();
+		auto rpait = paramRegAtrList->rbegin();
+		while(rpit != paramRegList->rend() && rpait != paramRegAtrList->rend()) {
+			tmpReg1 = (*rpit);
+			isFloat = (*rpait);
+
+			// pop inst: ADD REG_SP 1 REG_SP
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+			dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+			ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
+			code += ai->toString();
+
+			if (isFloat) {
+				// inst: LDF tmpReg2 param_i
+				arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+				arg2 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
+				mi = new MovIns(MovIns::MovInsType::LDF, arg1, arg2);
+			} else {
+				// inst: LDI tmpReg2 param_i
+				arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+				arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+				mi = new MovIns(MovIns::MovInsType::LDI, arg1, arg2);
+			}
+			code += mi->toString();
+
+			rpit++;
+			rpait++;
+		}
+	}
+
+	// restore RSP : SP += #local_vars + 1
+	localVarNum = fun_->localVarNum();
 	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
-	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1 + arity);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, localVarNum);
 	dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
 	ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
 	code += ai->toString();
+
+ 	// 4. pop bp
+	// pop inst: ADD REG_SP 1 REG_SP
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+	dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
+	code += ai->toString();
+
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_BP);
+	mi = new MovIns(MovIns::MovInsType::LDI, arg1, arg2);
+	code += mi->toString();
+
+ 	// 5. pop ret addr 
+	// pop inst: ADD REG_SP 1 REG_SP
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+	dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
+	code += ai->toString();
+
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_RA);
+	mi = new MovIns(MovIns::MovInsType::LDI, arg1, arg2);
+	code += mi->toString();
+
 
 	// jmp to RA
 	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_RA);
