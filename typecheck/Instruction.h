@@ -15,7 +15,8 @@ class Instruction {
 		FLOATRELOP,
 		PRINT,
 		JMP,
-		DATAMOV
+		DATAMOV,
+		INPUT
 			
 	}; // all possible instruction types //
 	Instruction(InstructionType it) { it_ = it;};
@@ -202,4 +203,16 @@ class MovIns: public Instruction{
         const Operand* arg2_;
 };	
 
+class InputIns: public Instruction{
+	public:
+		enum class InputInsType{
+			IN, INI, INF
+		};
+	public:
+		InputIns(InputInsType iit, Operand* arg1);
+		std::string toString();
+	private:
+        InputInsType iit_;
+        const Operand* arg1_;
+};
 #endif

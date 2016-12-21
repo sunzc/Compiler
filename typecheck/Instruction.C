@@ -233,11 +233,38 @@ std::string MovIns::toString(){
 			inst = "STF ";
 			break;
 		default:
-			std::cout<<"Unknown PrintInsType!"<<std::endl;
+			std::cout<<"Unknown MovInsType!"<<std::endl;
 			break;
 	}
 
 	inst += arg1_->toString() + " " + arg2_->toString() + "\n";
+
+	return inst;
+}
+
+InputIns:: InputIns(InputInsType iit, Operand *arg1)
+	:Instruction(Instruction::InstructionType::INPUT){
+		iit_ = iit;
+		arg1_ = arg1;
+}
+
+std::string InputIns::toString(){
+	string inst = NULL;
+
+	switch(iit_) {
+		case InputInsType::IN:
+			inst = "IN " + arg1_->toString() + "\n";
+			break;
+		case InputInsType::INI:
+			inst = "INI " + arg1_->toString() + "\n";
+			break;
+		case InputInsType::INF:
+			inst = "INF " + arg1_->toString() + "\n";
+			break;
+		default:
+			std::cout<<"Unknown InputInsType!"<<std::endl;
+			break;
+	}
 
 	return inst;
 }
@@ -271,7 +298,7 @@ std::string JumpIns::toString(){
 			inst = "JMPCI " + cond + " " + arg1_->toString() + "\n";
 			break;
 		default:
-			std::cout<<"Unknown PrintInsType!"<<std::endl;
+			std::cout<<"Unknown JumpInsType!"<<std::endl;
 			break;
 	}
 
