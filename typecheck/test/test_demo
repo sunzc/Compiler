@@ -1,0 +1,35 @@
+
+    event demo_event(double a1 , int a2 , unsigned int a3);
+
+    int i = 2 ;
+    int j = 3 ;
+    int m;
+
+    bool b1=true;
+    bool b2=false;
+
+    double d = 4.0 ;
+
+    string s1="aaaa";
+    string s2="bbbb";	 
+
+
+    int add(int a, int b) { return a+b;};
+    double minus_d_val(double x) { return -x;};
+
+    string test_str_print(string a, string b) { print a; return b;}
+
+    demo_event(d_val, i_val, ui_val) -> {
+                     
+	test_str_print(s1, s2);
+	d = minus_d_val(d);
+	print d;
+
+	m = add(i,j);
+	print m;
+
+	print "test print d_val\n";
+	print d_val;
+
+    };
+   
