@@ -189,7 +189,10 @@ std::string PrintIns::toString(){
 			break;
 	}
 
-	inst += arg1_->toString() + "\n";
+	if (pit_ == PrintInsType::PRTS)
+		inst += "\"" + arg1_->toString() + "\"" + "\n";
+	else
+		inst += arg1_->toString() + "\n";
 
 	return inst;
 }
@@ -237,7 +240,10 @@ std::string MovIns::toString(){
 			break;
 	}
 
-	inst += arg1_->toString() + " " + arg2_->toString() + "\n";
+	if (mit_ == MovInsType::MOVS)
+		inst += "\"" + arg1_->toString() + "\"" + " " + arg2_->toString() + "\n";
+	else
+		inst += arg1_->toString() + " " + arg2_->toString() + "\n";
 
 	return inst;
 }

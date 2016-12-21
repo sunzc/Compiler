@@ -1,5 +1,5 @@
 
-    event demo_event(double a1 , int a2 , unsigned int a3);
+    event a(int a2 , double a3);
 
     int i = 2 ;
     int j = 3 ;
@@ -19,7 +19,7 @@
 
     string test_str_print(string a, string b) { print a; return b;}
 
-    demo_event(d_val, i_val, ui_val) -> {
+    a(i_val, d_val) -> {
                      
 	test_str_print(s1, s2);
 	d = minus_d_val(d);
@@ -28,7 +28,7 @@
 	m = add(i,j);
 	print m;
 
-	print "test print d_val\n";
+	print "test print d_val\\n";
 	print d_val;
 
     };

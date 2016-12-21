@@ -2255,7 +2255,7 @@ string RuleNode::codeGen(RegManager *rm) {
 
 	// 9. JMP REG_RL
 	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_RL);
-	ji = new JumpIns(JumpIns::JumpInsType::JMP, NULL, arg1);
+	ji = new JumpIns(JumpIns::JumpInsType::JMPI, NULL, arg1);
 	code += ji->toString();
 
 	return code;
@@ -2567,7 +2567,7 @@ string ReturnStmtNode::codeGen(RegManager *rm) {
 
 	// jmp to REG_RA
 	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_RA);
-	ji = new JumpIns(JumpIns::JumpInsType::JMP, NULL, arg1);
+	ji = new JumpIns(JumpIns::JumpInsType::JMPI, NULL, arg1);
 	code += ji->toString();
 
 	return code;

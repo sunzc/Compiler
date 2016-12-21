@@ -192,7 +192,7 @@ void E_RT_exit() {
    }
 }
 
-inline int ini() {
+extern inline int ini() {
    union {
       char c[4];
       int i;
@@ -202,7 +202,7 @@ inline int ini() {
    z.c[0] = r1; z.c[1] = r2; z.c[2] = r3; z.c[3] = r4;
    return z.i;
 }
-inline int inf() {
+extern inline int inf() {
    union {
       char c[4];
       float f;
