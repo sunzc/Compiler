@@ -24,7 +24,7 @@ class Instruction {
 	/* An address can be a name, constant or a compiler-generated temporary */
 	
 	static std::string getLabel();
-	virtual std::string toString() { return NULL;};
+	virtual std::string toString() { return "";};
 	
 	/* Operand class to be defined here */
 	
@@ -46,7 +46,7 @@ class Instruction {
 		float f_val() const { return f_val_;};
 		std::string s_val() const { return s_val_;};
 		std::string reg_name(int i) const{
-			std::string name = NULL;
+			std::string name;
 
 			if (i>=0 && i<=9)
 				name = "00" + std::to_string(i);
@@ -62,7 +62,7 @@ class Instruction {
 
 		// return a corresponding operand name like 'R001','F003',"L2:","test output"
 		std::string toString() const{
-			std::string op = NULL;
+			std::string op;
 			switch (ot_) {
 				case OperandType::INT_REG:
 					op = "R" + reg_name(i_val_);

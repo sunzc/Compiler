@@ -208,11 +208,15 @@ main(int argc, char *argv[], char *envp[]) {
   yyparse();
   stm.leaveToScope(SymTabEntry::Kind::GLOBAL_KIND);
   GlobalEntry *ge = (GlobalEntry*)(stm.currentScope());
+  string code;
+  RegManager *rm = new RegManager();
   if (ge != NULL) {
 	//cout << "Finished parsing, here is the AST\n";
 	ge->typeCheck();
 	ge->memAlloc();
 	ge->typePrint(cout, 2);
+	code = ge->codeGen(rm);
+	cout << code <<endl;
   }
 #endif
 }

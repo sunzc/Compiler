@@ -21,6 +21,8 @@ class RuleNode;
 class SymTabEntry;
 class VariableEntry;
 
+extern int labelCount;
+
 /*****************************************************************************
    Here is the class hierarchy:
                                                ProgramElem
@@ -69,7 +71,7 @@ class AstNode: public ProgramElem {
   virtual const Type* typeCheck() {return NULL;};
   virtual void typePrint(ostream& os, int indent=0) const=0;
   virtual void print(ostream& os, int indent=0) const=0;
-  virtual string codeGen(RegManager *rm) {return NULL;};
+  virtual string codeGen(RegManager *rm) {return "";};
 
   virtual void renameRV(string prefix) {}; // new names start with given prefix
   virtual bool operator==(const AstNode&) const { return false; };
@@ -77,11 +79,11 @@ class AstNode: public ProgramElem {
   { return !operator==(a); };
 
   static string getLabel() {
-	string label = NULL;
+	string label;
 
-	label +=  "L";
+	label =  "L";
 	label += std::to_string(labelCount);
-	labelCount ++;
+	labelCount++;
 
 	return label;
   };
@@ -89,7 +91,6 @@ class AstNode: public ProgramElem {
  private: 
   NodeType nodeType_;
   const AstNode* operator=(const AstNode& other); /* disable asg */
-  static int labelCount;
 };
 
 inline ostream& operator<<(ostream& os, const AstNode& an) {

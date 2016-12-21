@@ -10,7 +10,7 @@ ArithIns::ArithIns(ArithInsType at, const Operand* arg1, const Operand* arg2, co
 }
 
 std::string ArithIns::toString(){
-	string inst = NULL;
+	string inst;
 
 	switch(at_) {
 		case ArithInsType::ADD:
@@ -62,7 +62,7 @@ FloatArithIns::FloatArithIns(FloatArithInsType fat, const Operand* arg1, const O
 }
 
 std::string FloatArithIns::toString(){
-	string inst = NULL;
+	string inst;
 
 	switch(fat_) {
 		case FloatArithInsType::FADD:
@@ -101,7 +101,7 @@ RelOpIns::RelOpIns(RelOpInsType relop, const Operand* arg1, const Operand* arg2)
 }
 
 std::string RelOpIns::toString(){
-	string inst = NULL;
+	string inst;
 
 	switch(relop_) {
 		case RelOpInsType::GT:
@@ -140,7 +140,7 @@ FloatRelOpIns::FloatRelOpIns(FloatRelOpInsType frelop, const Operand* arg1, cons
 }
 
 std::string FloatRelOpIns::toString(){
-	string inst = NULL;
+	string inst;
 
 	switch(frelop_) {
 		case FloatRelOpInsType::FGT:
@@ -172,7 +172,7 @@ PrintIns::PrintIns(PrintInsType pit, const Operand* arg1)
 }
 
 std::string PrintIns::toString(){
-	string inst = NULL;
+	string inst;
 
 	switch(pit_) {
 		case PrintInsType::PRTI:
@@ -202,7 +202,7 @@ MovIns::MovIns(MovInsType mit, const Operand* arg1, const Operand* arg2)
 }
 
 std::string MovIns::toString(){
-	string inst = NULL;
+	string inst;
 
 	switch(mit_) {
 		case MovInsType::MOVL:
@@ -249,7 +249,7 @@ InputIns:: InputIns(InputInsType iit, Operand *arg1)
 }
 
 std::string InputIns::toString(){
-	string inst = NULL;
+	string inst;
 
 	switch(iit_) {
 		case InputInsType::IN:
@@ -277,8 +277,8 @@ JumpIns::JumpIns(JumpInsType jit, Instruction *cond, Operand *arg1)
 }
 
 std::string JumpIns::toString(){
-	string inst = NULL;
-	string cond = NULL;
+	string inst;
+	string cond;
 
 	switch(jit_) {
 		case JumpInsType::JMP:

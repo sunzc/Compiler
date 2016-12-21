@@ -429,7 +429,7 @@ OpNode::typePrint(ostream& os, int indent) const {
 }
 
 string OpNode::codeGen(RegManager *rm) {
-	string code = NULL;
+	string code;
 	int tmpReg1, tmpReg2, destReg;
 	unsigned int arity, i;
 	bool isFloat = false;
@@ -928,7 +928,7 @@ void ValueNode::typePrint(ostream& os, int indent) const{
 }
 
 string ValueNode::codeGen(RegManager *rm) {
-	string code = NULL;
+	string code;
 	int tmpReg1;
 	const Value *val;
 	bool isFloat = false;
@@ -1055,7 +1055,7 @@ RefExprNode::RefExprNode(const RefExprNode& ren):
 string RefExprNode::codeGen(RegManager *rm) {
 	// for local/global variable : load var into caller-save tmp reg
 	// for param variable: move value from param var reg to caller saved tmp reg(in case coerced type)
-	string code = NULL;
+	string code;
 	int tmpReg1, tmpReg2, paramReg, offset;
 	bool isFloat = false;
 	const Type *ctype = this->coercedType();
@@ -1910,7 +1910,7 @@ string RuleNode::codeGen(RegManager *rm) {
  * 3. store label into memory
  */
 string RuleNode::ruleInitCode(RegManager *rm) {
-	string code = NULL;
+	string code;
 	EventEntry *ee;
 	MovIns *mi;
 	Instruction::Operand *arg1, *arg2;

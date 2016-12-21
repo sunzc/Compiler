@@ -494,7 +494,7 @@ void ClassEntry::print(ostream& os, int indent) const{
  *	6. jmp REG_RA
  */
 string FunctionEntry::codeGen(RegManager *rm) {
-	string code = NULL;
+	string code;
 	int tmpReg1, tmpReg2;
 	int localVarNum;
 	int i, p_num;
