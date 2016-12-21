@@ -557,6 +557,9 @@ string FunctionEntry::codeGen(RegManager *rm) {
 			dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
 			ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
 			code += ai->toString();
+
+			pit++;
+			pait++;
 		}
 	}
 
