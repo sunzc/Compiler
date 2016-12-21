@@ -82,7 +82,7 @@ FunctionEntry *currentFuncEntry = NULL;
 %type <patVal> event_pattern rule_body1
 %type <ruleNode> rule
 %type <paramVal> param_list param_plus
-%type <exprVal> expr function_invocation asg_stmt lp_expr_rp
+%type <exprVal> expr function_invocation asg_stmt lp_expr_rp print_stmt
 %type <valVal> literal
 %type <uVal> TOK_UINTNUM
 %type <dVal> TOK_DOUBLENUM
@@ -105,7 +105,7 @@ FunctionEntry *currentFuncEntry = NULL;
 %type <primPatVal> event primitive_pat 
 %type <typeVal> type baseType 
 %type <exprList> expr_list expr_plus
-%type <exprVal> expr function_invocation asg_stmt
+%type <exprVal> expr function_invocation asg_stmt print_stmt
 %type <refexpVal> ref_expr
 %type <ruleNode> rule
 %type <strVector> id_list id_plus
@@ -127,6 +127,7 @@ FunctionEntry *currentFuncEntry = NULL;
 /*********************   Precedence and Associativity    ********************/
 
 %nonassoc TOK_ASSIGN
+%nonassoc TOK_PRINT
 
 %left  TOK_PAT_OR 
 %left  TOK_COLON
@@ -814,6 +815,15 @@ asg_stmt: ref_expr TOK_ASSIGN expr {
 }
 ;
 
+print_stmt: TOK_PRINT expr{
+	$$ = new OpNode(OpNode::OpCode::PRINT, $2);
+}
+| TOK_PRINT error TOK_SEMICOLON {
+	errMsg("Syntax error in assignment");
+	yyerrok;
+}
+;
+
 function_invocation: TOK_IDENT TOK_LPAREN expr_list TOK_RPAREN {
 	////prt("FunctionInvocation");
 	// check whether function name has been defined or not, only check GlobalScope
@@ -909,6 +919,9 @@ stmt: TOK_SEMICOLON {
 	$$ = nullptr;
 } /* empty statement */
 | asg_stmt TOK_SEMICOLON {
+	$$ = new ExprStmtNode($1);
+}
+| print_stmt TOK_SEMICOLON {
 	$$ = new ExprStmtNode($1);
 }
 | TOK_RETURN expr TOK_SEMICOLON {

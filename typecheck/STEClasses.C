@@ -134,7 +134,7 @@ string GlobalEntry::codeGen(RegManager *rm) {
 				continue;
 			}
 
-			std::cout<<"Debug: inwhile loop before var gencode "<<std::endl;
+			std::cout<<"Debug: inwhile loop before var gencode ,var:"<<(*it)->name()<<std::endl;
 			if ((*it)->kind() == SymTabEntry::Kind::VARIABLE_KIND) {
 				assert(((VariableEntry *)(*it))->varKind() == VariableEntry::VarKind::GLOBAL_VAR);
 
@@ -507,9 +507,11 @@ string FunctionEntry::codeGen(RegManager *rm) {
 	bool isFloat = false;
 	Instruction::Operand *arg1, *arg2, *dest;
 	MovIns *mi;
-	ArithIns *ai = NULL;
+	ArithIns *ai;
 	vector<int> *paramRegList = new vector<int>();
 	vector<bool> *paramRegAtrList = new vector<bool>();
+
+	cout<<"Debug in Func::codeGen, func name:"<<this->name()<<endl;
 
 	// handle funcLabel
 	string funcLabel = this->getFuncLabel();
@@ -548,6 +550,8 @@ string FunctionEntry::codeGen(RegManager *rm) {
 	ai = new ArithIns(ArithIns::ArithInsType::SUB, arg1, arg2, dest);
 	code += ai->toString();
 
+	cout<<"Debug in Func::codeGen, before traverse symTab "<<endl;
+
 	// 4. push callee save registers(we only allocate callee save registers for func params and REG_RA)
 	if (this->symTab() != NULL) {
 		auto it = this->symTab()->begin();
@@ -556,6 +560,8 @@ string FunctionEntry::codeGen(RegManager *rm) {
 
 		// parameters
 		for(; (it != this->symTab()->end()) && (i < p_num); ++it, ++i) {
+			cout<<"Debug in Func::codeGen, inside for-loop, handle parameters"<<endl;
+
 			if ((*it)->type()->tag() != Type::TypeTag::DOUBLE)
 				isFloat = false;
 			else 
@@ -648,9 +654,13 @@ string FunctionEntry::codeGen(RegManager *rm) {
 
 	rm->releaseReg(tmpReg2, false);
 
-	// add function body code
-	code += this->body()->codeGen(rm);
+	cout<<"Debug in Func::codeGen, before generate code for body"<<endl;
 
+	// add function body code
+	if (this->body() != NULL)
+		code += this->body()->codeGen(rm);
+
+	cout<<"Debug in Func::codeGen, after generate code for body"<<endl;
 	return code;
 }
 

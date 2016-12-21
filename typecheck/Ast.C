@@ -169,6 +169,10 @@ const Type* OpNode::typeCheck() {
 	int argIdx = 0;
 
 	switch(opCode) {
+		case OpNode::OpCode::PRINT:
+			cout<<"Typecheck for PRINT OpNode"<<endl;
+			type = new Type::Type(Type::TypeTag::VOID);
+			break;
 		case OpNode::OpCode::UMINUS:
 			if(!ltype->isNumeric(ltype->tag())) {
 				// TODO handle type error here
@@ -477,6 +481,8 @@ string OpNode::codeGen(RegManager *rm) {
 	const SymTabEntry *ste;
 	bool error = false;
 
+	cout << "Debug OpNode::codeGen" <<endl;
+
 	// inherit existing code
 	arity = this->arity();
 	for (i = 0; i < arity; i++) {
@@ -505,6 +511,7 @@ string OpNode::codeGen(RegManager *rm) {
 		tmpReg2 = -1;
 
 	if (isFloat) {
+		cout << "Debug OpNode::codeGen float case" <<endl;
 		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
 		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg2);
 
@@ -534,7 +541,7 @@ string OpNode::codeGen(RegManager *rm) {
 					break;
 			}
 			if (error)
-				return NULL;
+				return "";
 
 			code += fai->toString();
 
@@ -711,13 +718,19 @@ string OpNode::codeGen(RegManager *rm) {
 		}
 
 		if (error)
-			return NULL;
+			return "";
 	} else {
+		cout << "Debug OpNode::codeGen integer case1" <<endl;
 		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
 		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
 
+		cout << "Debug OpNode::codeGen integer case2" <<endl;
+
 		if ((opcode >= OpNode::OpCode::UMINUS && opcode <= OpNode::OpCode::MOD) ||
 			(opcode >= OpNode::OpCode::BITNOT && opcode <= OpNode::OpCode::SHR)) {
+
+			cout << "Debug OpNode::codeGen integer case arith" <<endl;
+
 			// alloc a caller-save, int reg
 			destReg = rm->getReg(true, false);
 			dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, destReg);
@@ -769,7 +782,7 @@ string OpNode::codeGen(RegManager *rm) {
 			}
 
 			if (error)
-				return NULL; 
+				return ""; 
 
 			code += ai->toString();
 
@@ -793,9 +806,9 @@ string OpNode::codeGen(RegManager *rm) {
 
 			// release regs
 			if (op1->isRecyclable())
-				rm->releaseReg(tmpReg1, true);
+				rm->releaseReg(tmpReg1, false);
 			if (op2!= NULL && op2->isRecyclable())
-				rm->releaseReg(tmpReg2, true);
+				rm->releaseReg(tmpReg2, false);
 		} else if (opcode >= OpNode::OpCode::EQ && opcode <= OpNode::OpCode::LE) {
 			/**
 			 *	b) Relational Op
@@ -808,6 +821,8 @@ string OpNode::codeGen(RegManager *rm) {
 			 *		7. afterLabel:
 			 *		8. 	...
 			 */
+
+			cout << "Debug OpNode::codeGen integer case relOp case" <<endl;
 
 			switch(opcode) {
 				case OpNode::OpCode::EQ:
@@ -837,7 +852,7 @@ string OpNode::codeGen(RegManager *rm) {
 			}
 
 			if (error)
-				return NULL;
+				return "";
 
 			// inst: jmpc cond trueLabel
 			trueLabel = AstNode::getLabel();
@@ -878,9 +893,9 @@ string OpNode::codeGen(RegManager *rm) {
 
 			// release regs
 			if (op1->isRecyclable())
-				rm->releaseReg(tmpReg1, true);
+				rm->releaseReg(tmpReg1, false);
 			if (op2!= NULL && op2->isRecyclable())
-				rm->releaseReg(tmpReg2, true);
+				rm->releaseReg(tmpReg2, false);
 		} else if (opcode == OpNode::OpCode::ASSIGN) {
 			/**
 			 *	c) Assign
@@ -890,6 +905,8 @@ string OpNode::codeGen(RegManager *rm) {
 			 *		4.	sti/f expr.reg offset
 			 *		5. 	movi 1 resReg	# in assign truth value always be 1
 			 */
+
+			cout << "Debug OpNode::codeGen integer case assign case" <<endl;
 
 			ste = ((RefExprNode *)op1)->symTabEntry();
 			// inst1: MOVI offset tmpReg1
@@ -935,35 +952,45 @@ string OpNode::codeGen(RegManager *rm) {
 
 			// release regs
 			if (op1->isRecyclable())
-				rm->releaseReg(tmpReg1, true);
+				rm->releaseReg(tmpReg1, false);
 			if (op2!= NULL && op2->isRecyclable())
-				rm->releaseReg(tmpReg2, true);
+				rm->releaseReg(tmpReg2, false);
 		} else if (opcode == OpNode::OpCode::PRINT) {
 			/*
 			 *	d) Print
 			 *		1.	suppose:print expr
 			 *		2.	chose pri/f/s depends on expr.type
 			 */
+
+			cout << "Debug OpNode::codeGen integer case print case" <<endl;
+
 			// print int/str here
-			if (op1->type()->tag() == Type::TypeTag::STRING)
+			if (op1->type() == NULL) {
+				cout << "Debug OpNode::codeGen integer case print case, op1->type() null, "<<endl;
+				pi = new PrintIns(PrintIns::PrintInsType::PRTS, arg1);
+			} else if (op1->type()->tag() == Type::TypeTag::STRING)
 				pi = new PrintIns(PrintIns::PrintInsType::PRTS, arg1);
 			else
 				pi = new PrintIns(PrintIns::PrintInsType::PRTI, arg1);
+
+			cout << "Debug OpNode::codeGen integer case print case before toString" <<endl;
+
 			code += pi->toString();
 
 			// TODO
 			// PRINT should be stand alone stmt
 			// release regs
 			if (op1->isRecyclable())
-				rm->releaseReg(tmpReg1, true);
+				rm->releaseReg(tmpReg1, false);
 		} else {
 			error = true;
 			errMsg("ERROR in OpNode:: op1 is float, donot support this OpCode!\n");
 		}
 
 		if(error)
-			return NULL;
+			return "";
 
+		cout << "Debug OpNode::codeGen integer case done" <<endl;
 	}
 
 	return code;
@@ -1334,7 +1361,7 @@ string ValueNode::codeGen(RegManager *rm) {
 	}
 
 	if (error)
-		return NULL;
+		return "";
 
 	this->setTmpReg(tmpReg1);
 	this->setIsRecyclable(true);
@@ -1391,14 +1418,19 @@ string RefExprNode::codeGen(RegManager *rm) {
 	MovIns *mi;
 	ArithIns *ai;
 
+	cout <<"Debug RefExprNode::codeGen"<<endl;
+
 	// for parameter var, just set reg and isFloat, and return. param already loaded into reg when init function
  	if (((VariableEntry *)(this->symTabEntry()))->varKind() == VariableEntry::VarKind::PARAM_VAR &&
 		ctype == NULL) {
+
+		cout <<"Debug RefExprNode::codeGen param_var"<<endl;
+
 		this->setIsFloat(((VariableEntry *)(this->symTabEntry()))->isFloat());
 		this->setTmpReg(((VariableEntry *)(this->symTabEntry()))->getTmpReg());
 		// for parameter var, the default reg is callee saved, not recyclable
 		this->setIsRecyclable(false);
-		return NULL;
+		return "";
 	} else if (((VariableEntry *)(this->symTabEntry()))->varKind() == VariableEntry::VarKind::PARAM_VAR &&
 		ctype != NULL) {
 
@@ -1423,7 +1455,7 @@ string RefExprNode::codeGen(RegManager *rm) {
 			this->setTmpReg(((VariableEntry *)(this->symTabEntry()))->getTmpReg());
 			// for parameter var, the default reg is callee saved, not recyclable
 			this->setIsRecyclable(false);
-			return NULL;
+			return "";
 		}
 	}
 
@@ -1436,11 +1468,9 @@ string RefExprNode::codeGen(RegManager *rm) {
 	else
 		isFloat = false;
 
-	// set isFloat for this exprNode
-	this->setIsFloat(isFloat);
-
 	// inst1: MOVI offset tmpReg1
 	offset = ((VariableEntry *)(this->symTabEntry()))->offSet();
+
 	// alloc a caller-save, interger reg
 	tmpReg1 = rm->getReg(true, false);
 	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, offset);
@@ -1471,13 +1501,16 @@ string RefExprNode::codeGen(RegManager *rm) {
 		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
 		mi = new MovIns(MovIns::MovInsType::LDI, arg1, arg2);
 	}
-
-	rm->releaseReg(tmpReg1, false);
 	code += mi->toString();
+	rm->releaseReg(tmpReg1, false);
+
+	cout <<"Debug RefExprNode::codeGen before leave"<<endl;
 
 	// set tmp reg for exprNode
 	this->setTmpReg(tmpReg2);
 	this->setIsRecyclable(true);
+	// set isFloat for this exprNode
+	this->setIsFloat(isFloat);
 
 	return code;
 }
@@ -2379,14 +2412,18 @@ string CompoundStmtNode::codeGen(RegManager *rm) {
 	string code;
 	list<StmtNode*>* stmts = this->stmts();
 	if (stmts == NULL)
-		return NULL;
+		return "";
 
 	auto it = stmts->begin();
+
+	cout<<"Debug: CompoundStmtNode before call stmt->codeGen"<<endl;
 
 	for (;it != stmts->end(); ++it) {
 		if ((*it) != NULL)
 			code += (*it)->codeGen(rm);
 	}
+
+	cout<<"Debug: CompoundStmtNode before leave"<<endl;
 
 	return code;
 }
@@ -2436,6 +2473,7 @@ string ReturnStmtNode::codeGen(RegManager *rm) {
 	vector<bool> * paramRegAtrList = fun_->paramRegAtrList();
 	int localVarNum;
 
+	cout <<"Debug: ReturnStmtNode before check expr_"<<endl;
  	// 0. calcualte ret_val
 	// inst1: MOVI/F regTmp REG_RV
 	if (expr_ != NULL) {
@@ -2457,6 +2495,7 @@ string ReturnStmtNode::codeGen(RegManager *rm) {
 			rm->releaseReg(tmpReg1, isFloat);
 	}
 
+	cout <<"Debug: ReturnStmtNode before pop params"<<endl;
 	// 2. pop param_n -> param_1(callee save)
 	if (paramRegList->size() > 0) {
 		auto rpit = paramRegList->rbegin();
@@ -2489,6 +2528,8 @@ string ReturnStmtNode::codeGen(RegManager *rm) {
 			rpait++;
 		}
 	}
+
+	cout <<"Debug: ReturnStmtNode before restore sp"<<endl;
 
 	// restore RSP : SP += #local_vars + 1
 	localVarNum = fun_->localVarNum();
