@@ -428,22 +428,54 @@ OpNode::typePrint(ostream& os, int indent) const {
   else internalErr("Unhandled case in OpNode::print");
 }
 
+/**
+ * For OpNode:
+ *	a) arith Op
+ *		1. 	alloc resReg
+ *		2. 	Op expr1.reg expr2.reg resReg
+ *		3. 	if coercedType is float
+ *		4.	movif resReg fResReg
+ *	b) Relational Op
+ *		1. 	alloc resReg
+ *		2. 	jmpc relOp expr1.reg expr2.reg trueLabel
+ *		3. 	movi 0 resReg
+ *		4. 	jmp afterLabel
+ *		5. trueLabel:
+ *		6. 	movi 1 resReg
+ *		7. afterLabel:
+ *		8. 	...
+ *	c) Assign
+ *		1.	local Var, get offset + bp
+ *		2.	global var, get offset
+ *		3. 	if coerced type is float, movif expr.reg freg
+ *		4.	sti/f expr.reg offset
+ *		5. 	movi 1 resReg	# in assign truth value always be 1
+ *	d) Print
+ *		1.	suppose:print expr
+ *		2.	chose pri/f/s depends on expr.type
+ *
+ */
 string OpNode::codeGen(RegManager *rm) {
 	string code;
-	int tmpReg1, tmpReg2, destReg;
+	int tmpReg1, tmpReg2, tmpReg3, destReg;
+	int offset;
 	unsigned int arity, i;
 	bool isFloat = false;
-	bool useDestReg = false;
-	//const Type *ctype = this->coercedType();
-	const Type *type = this->type();
-	Instruction::Operand *arg1, *arg2, *dest;
+	const Type *ctype = this->coercedType();
+	Instruction::Operand *arg1, *arg2, *arg3, *dest;
 	ExprNode *op1, *op2, *op;
-	//MovIns *mi;
-	ArithIns *ai = NULL;
-	RelOpIns *roi = NULL;
-	FloatArithIns *fai = NULL;
-	FloatRelOpIns *froi = NULL;
+	MovIns *mi;
+	JumpIns *ji;
+	ArithIns *ai;
+	RelOpIns *roi;
+	PrintIns *pi;
+	FloatArithIns *fai;
+	FloatRelOpIns *froi;
 	OpNode::OpCode opcode = this->opCode();
+	string trueLabel;
+	string afterLabel;
+	const SymTabEntry *ste;
+	bool error = false;
 
 	// inherit existing code
 	arity = this->arity();
@@ -452,14 +484,19 @@ string OpNode::codeGen(RegManager *rm) {
 		code += op->codeGen(rm);
 	}
 
+/*
 	// 1. get original type
 	if(type->tag() == Type::TypeTag::DOUBLE)
 		isFloat = true;
 	else
 		isFloat = false;
 
+*/
 	op1 = this->arg(0);
 	op2 = this->arg(1);
+
+	// get the type of first argument
+	isFloat = op1->isFloat();
 
 	tmpReg1 = op1->getTmpReg();
 	if (op2 != NULL)
@@ -467,176 +504,466 @@ string OpNode::codeGen(RegManager *rm) {
 	else
 		tmpReg2 = -1;
 
-	//code += ai->toString();
 	if (isFloat) {
-		// alloc a caller-save, float reg
-		destReg = rm->getReg(true, true);
 		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
 		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg2);
-		dest = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, destReg);
 
-		switch (opcode) {
-			case OpNode::OpCode::UMINUS:
-				fai = new FloatArithIns(FloatArithIns::FloatArithInsType::FNEG, arg1, NULL, dest);
-				useDestReg = true;
-				break;
-			case OpNode::OpCode::PLUS:
-				fai = new FloatArithIns(FloatArithIns::FloatArithInsType::FADD, arg1, arg2, dest);
-				useDestReg = true;
-				break;
-			case OpNode::OpCode::MINUS:
-				fai = new FloatArithIns(FloatArithIns::FloatArithInsType::FSUB, arg1, arg2, dest);
-				useDestReg = true;
-				break;
-			case OpNode::OpCode::DIV:
-				fai = new FloatArithIns(FloatArithIns::FloatArithInsType::FDIV, arg1, arg2, dest);
-				useDestReg = true;
-				break;
-			case OpNode::OpCode::MULT:
-				fai = new FloatArithIns(FloatArithIns::FloatArithInsType::FMUL, arg1, arg2, dest);
-				useDestReg = true;
-				break;
-			case OpNode::OpCode::EQ:
-				froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FEQ, arg1, arg2);
-				useDestReg = false;
-				break;
-			case OpNode::OpCode::NE:
-				froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FNE, arg1, arg2);
-				useDestReg = false;
-				break;
-			case OpNode::OpCode::GT:
-				froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FGT, arg1, arg2);
-				useDestReg = false;
-				break;
-			case OpNode::OpCode::GE:
-				froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FGE, arg1, arg2);
-				useDestReg = false;
-				break;
-			// NOTE! we don't have FLT Instruction! use FGT instead
-			case OpNode::OpCode::LT:
-				froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FGT, arg2, arg1);
-				useDestReg = false;
-				break;
-			case OpNode::OpCode::LE:
-				froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FGE, arg2, arg1);
-				useDestReg = false;
-				break;
-			default:
-				break;
-			// TODO handle assignment separately
-			// TODO handle print separately
-			//case OpNode::OpCode::ASSIGN:
-			//	fai = new MovIns(MovIns::MovInsType::MOVF, arg1, dest);
-			//	break;
-		}
-		// TODO
-		// handle other things
-		if (fai != NULL)
+		if (opcode >= OpNode::OpCode::UMINUS && opcode <= OpNode::OpCode::DIV) {
+			// alloc a caller-save, float reg
+			destReg = rm->getReg(true, true);
+			dest = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, destReg);
+			switch (opcode) {
+				case OpNode::OpCode::UMINUS:
+					fai = new FloatArithIns(FloatArithIns::FloatArithInsType::FNEG, arg1, NULL, dest);
+					break;
+				case OpNode::OpCode::PLUS:
+					fai = new FloatArithIns(FloatArithIns::FloatArithInsType::FADD, arg1, arg2, dest);
+					break;
+				case OpNode::OpCode::MINUS:
+					fai = new FloatArithIns(FloatArithIns::FloatArithInsType::FSUB, arg1, arg2, dest);
+					break;
+				case OpNode::OpCode::DIV:
+					fai = new FloatArithIns(FloatArithIns::FloatArithInsType::FDIV, arg1, arg2, dest);
+					break;
+				case OpNode::OpCode::MULT:
+					fai = new FloatArithIns(FloatArithIns::FloatArithInsType::FMUL, arg1, arg2, dest);
+					break;
+				default:
+					// ERROR:should not reach here!
+					error = true;
+					break;
+			}
+			if (error)
+				return NULL;
+
 			code += fai->toString();
-		if (froi != NULL)
-			code += froi->toString();
-		if (!useDestReg) {
-			rm->releaseReg(destReg, true);
+
+			// set flat for expr
+			this->setTmpReg(destReg);
+			this->setIsRecyclable(true);
+			this->setIsFloat(true);
+
+			// release regs
+			if (op1->isRecyclable())
+				rm->releaseReg(tmpReg1, true);
+			if (op2!= NULL && op2->isRecyclable())
+				rm->releaseReg(tmpReg2, true);
+		} else if (opcode >= OpNode::OpCode::EQ && opcode <= OpNode::OpCode::LE) {
+			/**
+			 *	b) Relational Op
+			 *		1. 	alloc resReg
+			 *		2. 	jmpc relOp expr1.reg expr2.reg trueLabel
+			 *		3. 	movi 0 resReg
+			 *		4. 	jmp afterLabel
+			 *		5. trueLabel:
+			 *		6. 	movi 1 resReg
+			 *		7. afterLabel:
+			 *		8. 	...
+			 */
+
+			switch(opcode) {
+				case OpNode::OpCode::EQ:
+					froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FEQ, arg1, arg2);
+					break;
+				case OpNode::OpCode::NE:
+					froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FNE, arg1, arg2);
+					break;
+				case OpNode::OpCode::GT:
+					froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FGT, arg1, arg2);
+					break;
+				case OpNode::OpCode::GE:
+					froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FGE, arg1, arg2);
+					break;
+				// NOTE! we don't have FLT Instruction! use FGT instead
+				case OpNode::OpCode::LT:
+					froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FGT, arg2, arg1);
+					break;
+				case OpNode::OpCode::LE:
+					froi = new FloatRelOpIns(FloatRelOpIns::FloatRelOpInsType::FGE, arg2, arg1);
+					break;
+				default:
+					error = true;
+					break;
+			}
+
+			if (error)
+				return NULL;
+
+			// inst: jmpc cond trueLabel
+			trueLabel = AstNode::getLabel();
+			arg3 = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, trueLabel);
+			ji = new JumpIns(JumpIns::JumpInsType::JMPC, froi, arg3);
+			code += ji->toString();
+
+			// inst: movi 0 resReg
+			arg3 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 0);
+			// alloc a caller-save, int reg to store compare result
+			destReg = rm->getReg(true, false);
+			dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, destReg);
+			mi = new MovIns(MovIns::MovInsType::MOVI, arg3, dest);
+			code += mi->toString();
+
+			// inst: jmp afterLabel
+			afterLabel = AstNode::getLabel();
+			arg3 = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, afterLabel);
+			ji = new JumpIns(JumpIns::JumpInsType::JMP, NULL, arg3);
+			code += ji->toString();
+
+			code += trueLabel + ": ";
+
+			// inst: movi 1 resReg
+			arg3 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+			mi = new MovIns(MovIns::MovInsType::MOVI, arg3, dest);
+			code += mi->toString();
+
+			// afterLabel:
+			code += afterLabel + ": ";
+
+			// TODO
+			// set isFloat label, recyclable
+			// set flag for expr
+			this->setTmpReg(destReg);
+			this->setIsRecyclable(true);
+			this->setIsFloat(false);
+
+			// release regs
+			if (op1->isRecyclable())
+				rm->releaseReg(tmpReg1, true);
+			if (op2!= NULL && op2->isRecyclable())
+				rm->releaseReg(tmpReg2, true);
+		} else if (opcode == OpNode::OpCode::ASSIGN) {
+			/**
+			 *	c) Assign
+			 *		1.	local Var, get offset + bp
+			 *		2.	global var, get offset
+			 *		3. 	if coerced type is float, movif expr.reg freg
+			 *		4.	sti/f expr.reg offset
+			 *		5. 	movi 1 resReg	# in assign truth value always be 1
+			 */
+
+			ste = ((RefExprNode *)op1)->symTabEntry();
+			// inst1: MOVI offset tmpReg1
+			offset = ((VariableEntry *)(ste))->offSet();
+			// alloc a caller-save, interger reg
+			tmpReg1 = rm->getReg(true, false);
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, offset);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+			mi = new MovIns(MovIns::MovInsType::MOVI, arg1, arg2);
+			code += mi->toString();
+
+			// if variable is local variable, offset need to be recalculated
+			// inst2: SUB BP tmpReg1 tmpReg1
+			if (((VariableEntry *)(ste))->varKind() == VariableEntry::VarKind::LOCAL_VAR) {
+				arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_BP);
+				arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+				ai = new ArithIns(ArithIns::ArithInsType::SUB, arg1, arg2, arg2);
+				code += ai->toString();
+			}
+
+			// inst3: STF tmpReg2 tmpReg1
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg2);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+			mi = new MovIns(MovIns::MovInsType::STF, arg1, arg2);
+			code += mi->toString();
+
+			rm->releaseReg(tmpReg1, false);
+
+			// alloc a caller-save, integer reg, mov 1 destReg, because assign expr always have truth value 1
+			destReg = rm->getReg(true, false);
+			dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, destReg);
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+			mi = new MovIns(MovIns::MovInsType::MOVI, arg1, dest);
+			code += mi->toString();
+
+			// TODO
+			// set isFloat label, recyclable
+			// set flag for expr
+			this->setTmpReg(destReg);
+			this->setIsRecyclable(true);
+			this->setIsFloat(false);
+
+			// release regs
+			if (op2!= NULL && op2->isRecyclable())
+				rm->releaseReg(tmpReg2, true);
+		} else if (opcode == OpNode::OpCode::PRINT) {
+			/*
+			 *	d) Print
+			 *		1.	suppose:print expr
+			 *		2.	chose pri/f/s depends on expr.type
+			 */
+			// Only print float here
+			pi = new PrintIns(PrintIns::PrintInsType::PRTF, arg1);
+			code += pi->toString();
+
+			// TODO
+			// PRINT should be stand alone stmt
+			// set flag for expr
+			// this->setTmpReg(destReg);
+			//this->setIsRecyclable(true);
+			//this->setIsFloat(false);
+
+			// release regs
+			if (op1->isRecyclable())
+				rm->releaseReg(tmpReg1, true);
+		} else {
+			error = true;
+			errMsg("ERROR in OpNode:: op1 is float, donot support this OpCode!\n");
 		}
-		// TODO
-		// release op1, op2 when necessary
+
+		if (error)
+			return NULL;
 	} else {
-		// alloc a caller-save, integer reg
-		destReg = rm->getReg(true, false);
 		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
 		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
-		dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, destReg);
 
-		switch (opcode) {
-			case OpNode::OpCode::UMINUS:
-				ai = new ArithIns(ArithIns::ArithInsType::NEG, arg1, NULL, dest);
-				useDestReg = true;
-				break;
-			case OpNode::OpCode::PLUS:
-				ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
-				useDestReg = true;
-				break;
-			case OpNode::OpCode::MINUS:
-				ai = new ArithIns(ArithIns::ArithInsType::SUB, arg1, arg2, dest);
-				useDestReg = true;
-				break;
-			case OpNode::OpCode::DIV:
-				ai = new ArithIns(ArithIns::ArithInsType::DIV, arg1, arg2, dest);
-				useDestReg = true;
-				break;
-			case OpNode::OpCode::MULT:
-				ai = new ArithIns(ArithIns::ArithInsType::MUL, arg1, arg2, dest);
-				useDestReg = true;
-				break;
-			case OpNode::OpCode::MOD:
-				ai = new ArithIns(ArithIns::ArithInsType::MOD, arg1, arg2, dest);
-				useDestReg = true;
-				break;
-			case OpNode::OpCode::BITAND:
-				ai = new ArithIns(ArithIns::ArithInsType::AND, arg1, arg2, dest);
-				useDestReg = true;
-				break;
-			case OpNode::OpCode::BITOR:
-				ai = new ArithIns(ArithIns::ArithInsType::OR, arg1, arg2, dest);
-				useDestReg = true;
-				break;
-			case OpNode::OpCode::BITXOR:
-				ai = new ArithIns(ArithIns::ArithInsType::XOR, arg1, arg2, dest);
-				useDestReg = true;
-				break;
-			case OpNode::OpCode::BITNOT:
-				// TODO
-				// BITNOT can be implementated using XOR arg1 1111
-			case OpNode::OpCode::SHL:
-				// TODO
-				// SHL can be implementated using repeat 'MUL arg1 2' arg2 times
-			case OpNode::OpCode::SHR:
-				// TODO
-				// SHR can be implementated using repeat 'DIV arg1 2' arg2 times
-			case OpNode::OpCode::PRINT:
-				// TODO
-				// PRINT is not supported from lex parser ast type check to now
-				useDestReg = true;
-				break;
-			case OpNode::OpCode::EQ:
-				roi = new RelOpIns(RelOpIns::RelOpInsType::EQ, arg1, arg2);
-				useDestReg = false;
-				break;
-			case OpNode::OpCode::NE:
-				roi = new RelOpIns(RelOpIns::RelOpInsType::NE, arg1, arg2);
-				useDestReg = false;
-				break;
-			case OpNode::OpCode::GT:
-				roi = new RelOpIns(RelOpIns::RelOpInsType::GT, arg1, arg2);
-				useDestReg = false;
-				break;
-			case OpNode::OpCode::GE:
-				roi = new RelOpIns(RelOpIns::RelOpInsType::GE, arg1, arg2);
-				useDestReg = false;
-				break;
-			// NOTE! we don't have FLT Instruction! use FGT instead
-			case OpNode::OpCode::LT:
-				roi = new RelOpIns(RelOpIns::RelOpInsType::GT, arg2, arg1);
-				useDestReg = false;
-				break;
-			case OpNode::OpCode::LE:
-				roi = new RelOpIns(RelOpIns::RelOpInsType::GE, arg2, arg1);
-				useDestReg = false;
-				break;
-			default:
-				break;
-		}
-		// TODO
-		// handel other cases
-		if (ai != NULL)
+		if ((opcode >= OpNode::OpCode::UMINUS && opcode <= OpNode::OpCode::MOD) ||
+			(opcode >= OpNode::OpCode::BITNOT && opcode <= OpNode::OpCode::SHR)) {
+			// alloc a caller-save, int reg
+			destReg = rm->getReg(true, false);
+			dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, destReg);
+			switch (opcode) {
+				case OpNode::OpCode::UMINUS:
+					ai = new ArithIns(ArithIns::ArithInsType::NEG, arg1, NULL, dest);
+					break;
+				case OpNode::OpCode::PLUS:
+					ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
+					break;
+				case OpNode::OpCode::MINUS:
+					ai = new ArithIns(ArithIns::ArithInsType::SUB, arg1, arg2, dest);
+					break;
+				case OpNode::OpCode::DIV:
+					ai = new ArithIns(ArithIns::ArithInsType::DIV, arg1, arg2, dest);
+					break;
+				case OpNode::OpCode::MULT:
+					ai = new ArithIns(ArithIns::ArithInsType::MUL, arg1, arg2, dest);
+					break;
+				case OpNode::OpCode::MOD:
+					ai = new ArithIns(ArithIns::ArithInsType::MOD, arg1, arg2, dest);
+					break;
+				case OpNode::OpCode::BITAND:
+					ai = new ArithIns(ArithIns::ArithInsType::AND, arg1, arg2, dest);
+					break;
+				case OpNode::OpCode::BITOR:
+					ai = new ArithIns(ArithIns::ArithInsType::OR, arg1, arg2, dest);
+					break;
+				case OpNode::OpCode::BITXOR:
+					ai = new ArithIns(ArithIns::ArithInsType::XOR, arg1, arg2, dest);
+					break;
+				case OpNode::OpCode::BITNOT:
+					// TODO
+					// BITNOT can be implementated using XOR arg1 1111
+					arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, (int)0xffffffff);
+					ai = new ArithIns(ArithIns::ArithInsType::XOR, arg1, arg2, dest);
+					break;
+				case OpNode::OpCode::SHL:
+					// TODO
+					// SHL can be implementated using repeat 'MUL arg1 2' arg2 times, use loop
+				case OpNode::OpCode::SHR:
+					// TODO
+					// SHL can be implementated using repeat 'MUL arg1 2' arg2 times, use loop
+				default:
+					// ERROR:should not reach here!
+					errMsg("ERROR: unsupported opcode in OpNode::codeGen!\n");
+					error = true;
+					break;
+			}
+
+			if (error)
+				return NULL; 
+
 			code += ai->toString();
-		if (roi != NULL)
-			code += roi->toString();
-		if (!useDestReg) {
-			rm->releaseReg(destReg, false);
+
+			// check if we need to coerce INT to FLOAT
+			if ((ctype != NULL) && (ctype->tag() == Type::TypeTag::DOUBLE)) {
+				// alloc a caller-save, float reg
+				tmpReg3 = rm->getReg(true, true);
+				arg3 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg3);
+				mi = new MovIns(MovIns::MovInsType::MOVIF, dest, arg3);
+				code += mi->toString();
+				this->setIsFloat(true);
+				this->setTmpReg(tmpReg3);
+				rm->releaseReg(destReg, false);
+			} else {
+				this->setIsFloat(false);
+				this->setTmpReg(destReg);
+			}
+
+			// set flat for expr
+			this->setIsRecyclable(true);
+
+			// release regs
+			if (op1->isRecyclable())
+				rm->releaseReg(tmpReg1, true);
+			if (op2!= NULL && op2->isRecyclable())
+				rm->releaseReg(tmpReg2, true);
+		} else if (opcode >= OpNode::OpCode::EQ && opcode <= OpNode::OpCode::LE) {
+			/**
+			 *	b) Relational Op
+			 *		1. 	alloc resReg
+			 *		2. 	jmpc relOp expr1.reg expr2.reg trueLabel
+			 *		3. 	movi 0 resReg
+			 *		4. 	jmp afterLabel
+			 *		5. trueLabel:
+			 *		6. 	movi 1 resReg
+			 *		7. afterLabel:
+			 *		8. 	...
+			 */
+
+			switch(opcode) {
+				case OpNode::OpCode::EQ:
+					roi = new RelOpIns(RelOpIns::RelOpInsType::EQ, arg1, arg2);
+					break;
+				case OpNode::OpCode::NE:
+					roi = new RelOpIns(RelOpIns::RelOpInsType::NE, arg1, arg2);
+					break;
+				case OpNode::OpCode::GT:
+					roi = new RelOpIns(RelOpIns::RelOpInsType::GT, arg1, arg2);
+					break;
+				case OpNode::OpCode::GE:
+					roi = new RelOpIns(RelOpIns::RelOpInsType::GE, arg1, arg2);
+					break;
+				// NOTE! we don't have FLT Instruction! use FGT instead
+				case OpNode::OpCode::LT:
+					roi = new RelOpIns(RelOpIns::RelOpInsType::GT, arg2, arg1);
+					break;
+				case OpNode::OpCode::LE:
+					roi = new RelOpIns(RelOpIns::RelOpInsType::GE, arg2, arg1);
+					break;
+				default:
+					// should not reach here
+					error = true;
+					errMsg("ERROR in OpNode::codeGen unknown opcode!\n");
+					break;
+			}
+
+			if (error)
+				return NULL;
+
+			// inst: jmpc cond trueLabel
+			trueLabel = AstNode::getLabel();
+			arg3 = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, trueLabel);
+			ji = new JumpIns(JumpIns::JumpInsType::JMPC, roi, arg3);
+			code += ji->toString();
+
+			// inst: movi 0 resReg
+			arg3 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 0);
+			// alloc a caller-save, int reg to store compare result
+			destReg = rm->getReg(true, false);
+			dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, destReg);
+			mi = new MovIns(MovIns::MovInsType::MOVI, arg3, dest);
+			code += mi->toString();
+
+			// inst: jmp afterLabel 
+			afterLabel = AstNode::getLabel();
+			arg3 = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, afterLabel);
+			ji = new JumpIns(JumpIns::JumpInsType::JMP, NULL, arg3);
+			code += ji->toString();
+
+			code += trueLabel + ": ";
+
+			// inst: movi 1 resReg
+			arg3 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+			mi = new MovIns(MovIns::MovInsType::MOVI, arg3, dest);
+			code += mi->toString();
+
+			// afterLabel:
+			code += afterLabel + ": ";
+
+			// TODO
+			// set isFloat label, recyclable
+			// set flag for expr
+			this->setTmpReg(destReg);
+			this->setIsRecyclable(true);
+			this->setIsFloat(false);
+
+			// release regs
+			if (op1->isRecyclable())
+				rm->releaseReg(tmpReg1, true);
+			if (op2!= NULL && op2->isRecyclable())
+				rm->releaseReg(tmpReg2, true);
+		} else if (opcode == OpNode::OpCode::ASSIGN) {
+			/**
+			 *	c) Assign
+			 *		1.	local Var, get offset + bp
+			 *		2.	global var, get offset
+			 *		3. 	if coerced type is float, movif expr.reg freg
+			 *		4.	sti/f expr.reg offset
+			 *		5. 	movi 1 resReg	# in assign truth value always be 1
+			 */
+
+			ste = ((RefExprNode *)op1)->symTabEntry();
+			// inst1: MOVI offset tmpReg1
+			offset = ((VariableEntry *)(ste))->offSet();
+			// alloc a caller-save, interger reg
+			tmpReg1 = rm->getReg(true, false);
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, offset);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+			mi = new MovIns(MovIns::MovInsType::MOVI, arg1, arg2);
+			code += mi->toString();
+
+			// if variable is local variable, offset need to be recalculated
+			// inst2: SUB BP tmpReg1 tmpReg1
+			if (((VariableEntry *)(ste))->varKind() == VariableEntry::VarKind::LOCAL_VAR) {
+				arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_BP);
+				arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+				ai = new ArithIns(ArithIns::ArithInsType::SUB, arg1, arg2, arg2);
+				code += ai->toString();
+			}
+
+			// inst3: STI tmpReg2 tmpReg1
+			// Note: tmpReg2 may be a STR_CONST (MOVS STR_CONST REG)
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+			mi = new MovIns(MovIns::MovInsType::STI, arg1, arg2);
+			code += mi->toString();
+
+			rm->releaseReg(tmpReg1, false);
+
+			// alloc a caller-save, integer reg, mov 1 destReg, because assign expr always have truth value 1
+			destReg = rm->getReg(true, false);
+			dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, destReg);
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+			mi = new MovIns(MovIns::MovInsType::MOVI, arg1, dest);
+			code += mi->toString();
+
+			// TODO
+			// set isFloat label, recyclable
+			// set flag for expr
+			this->setTmpReg(destReg);
+			this->setIsRecyclable(true);
+			this->setIsFloat(false);
+
+			// release regs
+			if (op1->isRecyclable())
+				rm->releaseReg(tmpReg1, true);
+			if (op2!= NULL && op2->isRecyclable())
+				rm->releaseReg(tmpReg2, true);
+		} else if (opcode == OpNode::OpCode::PRINT) {
+			/*
+			 *	d) Print
+			 *		1.	suppose:print expr
+			 *		2.	chose pri/f/s depends on expr.type
+			 */
+			// print int/str here
+			if (op1->type()->tag() == Type::TypeTag::STRING)
+				pi = new PrintIns(PrintIns::PrintInsType::PRTS, arg1);
+			else
+				pi = new PrintIns(PrintIns::PrintInsType::PRTI, arg1);
+			code += pi->toString();
+
+			// TODO
+			// PRINT should be stand alone stmt
+			// release regs
+			if (op1->isRecyclable())
+				rm->releaseReg(tmpReg1, true);
+		} else {
+			error = true;
+			errMsg("ERROR in OpNode:: op1 is float, donot support this OpCode!\n");
 		}
-		// TODO
-		// release op1, op2 when necessary
+
+		if(error)
+			return NULL;
+
 	}
 
 	return code;
