@@ -215,6 +215,7 @@ main(int argc, char *argv[], char *envp[]) {
 	ge->typeCheck();
 	ge->memAlloc();
 	ge->typePrint(cout, 2);
+	cout << "Debug:before ge->codeGen(rm)" << endl;
 	code = ge->codeGen(rm);
 	cout << code <<endl;
   }

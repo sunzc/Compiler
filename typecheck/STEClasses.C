@@ -108,20 +108,23 @@ string GlobalEntry::codeGen(RegManager *rm) {
 	int offset;
 	// tempReg: reg name like "R001", "F009"
 	int tmpReg1, tmpReg2;
-	string globalVarInitCode = "";
-	string funcCode = "";
-	string ruleCode = "";
-	string ruleInitCode = "";
-	string stackInitCode = "";
-	string mainLoopCode = "";
+	string helpInfo = "// ABI:\n// REG_RA(func ret addr) : R900\n// REG_BP: R901\n// REG_SP: R902\n// REG_RV(func ret value): R903 or F903\n// REG_RL(main loop ret label): R904\n";
+	string globalVarInitCode = "//global var init code\n";
+	string funcCode = "// func code\n";
+	string ruleCode = "// rule code\n";
+	string ruleInitCode = "// rule init code\n";
+	string stackInitCode = "// stack init code\n";
+	string mainLoopCode = "// main loop code\n";
 	ExprNode *initVal;
 	bool isFloat;
 	Instruction::Operand *arg1, *arg2;
 	MovIns *mi;
 
-	stackInitCode = this->stackInit(rm, STACK_START);
+	std::cout<<"Debug: before stackInitCode"<<std::endl;
+	stackInitCode += this->stackInit(rm, STACK_START);
 
-	mainLoopCode = this->mainLoop(rm);
+	std::cout<<"Debug: before mainLoop"<<std::endl;
+	mainLoopCode += this->mainLoop(rm);
 
 	if (st != NULL) {
 		auto it = st->begin();
@@ -131,14 +134,17 @@ string GlobalEntry::codeGen(RegManager *rm) {
 				continue;
 			}
 
+			std::cout<<"Debug: inwhile loop before var gencode "<<std::endl;
 			if ((*it)->kind() == SymTabEntry::Kind::VARIABLE_KIND) {
 				assert(((VariableEntry *)(*it))->varKind() == VariableEntry::VarKind::GLOBAL_VAR);
 
 				tag = (*it)->type()->tag();
 				if(tag >= Type::TypeTag::VOID && tag <= Type::TypeTag::CLASS){
 					initVal = ((VariableEntry *)(*it))->initVal();
-					if (initVal == NULL)
+					if (initVal == NULL) {
+						++it;
 						continue;
+					}
 
 					globalVarInitCode += initVal->codeGen(rm);
 
@@ -193,7 +199,7 @@ string GlobalEntry::codeGen(RegManager *rm) {
 		}
 	}
 
-	return stackInitCode + globalVarInitCode + ruleInitCode + mainLoopCode + funcCode + ruleCode;
+	return helpInfo + stackInitCode + globalVarInitCode + ruleInitCode + mainLoopCode + funcCode + ruleCode;
 }
 
 void GlobalEntry::memAlloc() {
