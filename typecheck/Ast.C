@@ -1280,7 +1280,7 @@ string InvocationNode::codeGen(RegManager *rm) {
 	}
 
 	// before function call, push caller-save register
-	// TODO
+	code +=  rm->pushCallerSaveRegs();
 
 	// pass parameters via stack in reverse order
 	for( i = arity - 1; i>=0; i--) {
@@ -1352,7 +1352,7 @@ string InvocationNode::codeGen(RegManager *rm) {
 	code += label + ": ";
 
 	// pop out func params
-	if (arity > 0)
+	if (arity > 0) {
 		//inst2: SUB SP 1 SP
 		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
 		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, arity);
@@ -1362,7 +1362,7 @@ string InvocationNode::codeGen(RegManager *rm) {
 	}
 
 	// after function call recover caller-save registes
-	// TODO
+	code +=  rm->popCallerSaveRegs();
 
 	// if return type is not VOID keep return value
 	if (retType->tag() != Type::TypeTag::VOID) {
@@ -1777,14 +1777,6 @@ string ReturnStmtNode::codeGen(RegManager *rm) {
 	vector<bool> * paramRegAtrList = fun_->paramRegAtrList();
 	int localVarNum;
 
-	// 0. restore callee save register + rbp
-	// 1. prepare ret val
-	// 2. restore rsp (rsp = rsp - #param - 1(ret addr)
-	// 3. jump to ret address
-	// NOTE: ret addr stored in REG_RA
-
-	// TODO restore callee save register + rbp
-
  	// 0. calcualte ret_val
 	// inst1: MOVI/F regTmp REG_RV
 	if (expr_ != NULL) {
@@ -1874,7 +1866,7 @@ string ReturnStmtNode::codeGen(RegManager *rm) {
 	code += mi->toString();
 
 
-	// jmp to RA
+	// jmp to REG_RA
 	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_RA);
 	ji = new JumpIns(JumpIns::JumpInsType::JMP, NULL, arg1);
 	code += ji->toString();

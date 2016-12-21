@@ -28,6 +28,8 @@ class RegManager {
   int getReg(bool isCallerSave, bool isFloat);
   void releaseReg(int regNum, bool isFloat);
   bool isCallerSR(int regNum);
+  std::string pushCallerSaveRegs();
+  std::string popCallerSaveRegs();
  private:
   /**
    * freeCallerSIR abbr. of free caller save Integer register.
