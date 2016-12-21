@@ -497,6 +497,7 @@ string FunctionEntry::codeGen(RegManager *rm) {
 	string code = NULL;
 	int tmpReg1, tmpReg2;
 	int localVarNum;
+	int i, p_num;
 	bool isFloat = false;
 	Instruction::Operand *arg1, *arg2, *dest;
 	MovIns *mi;
@@ -524,6 +525,7 @@ string FunctionEntry::codeGen(RegManager *rm) {
 	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
 	dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
 	ai = new ArithIns(ArithIns::ArithInsType::SUB, arg1, arg2, dest);
+	code += ai->toString();
 
 	// 2. move sp to bp
 	// inst1: MOVI REG_SP REG_BP 
@@ -543,8 +545,8 @@ string FunctionEntry::codeGen(RegManager *rm) {
 	// 4. push callee save registers(we only allocate callee save registers for func params and REG_RA)
 	if (this->symTab() != NULL) {
 		auto it = this->symTab()->begin();
-		int p_num = this->type()->arity();
-		int i = 0;
+		p_num = this->type()->arity();
+		i = 0;
 
 		// parameters
 		for(; (it != this->symTab()->end()) && (i < p_num); ++it, ++i) {
@@ -586,20 +588,7 @@ string FunctionEntry::codeGen(RegManager *rm) {
 		}
 	}
 
-	// push REG_RA onto stack, REG_RA also count as callee save
-	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_RA);
-	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
-	mi = new MovIns(MovIns::MovInsType::STI, arg1, arg2);
-	code += mi->toString();
-
-	// inst2: SUB REG_SP 1 REG_SP
-	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
-	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
-	dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
-	ai = new ArithIns(ArithIns::ArithInsType::SUB, arg1, arg2, dest);
-	code += ai->toString();
-
-	// 6. read param_n -> param_1 into regs
+	// 5. read param_n -> param_1 into regs
 
 	// alloc a caller-save, int reg
 	tmpReg2 = rm->getReg(true, false);
@@ -611,9 +600,9 @@ string FunctionEntry::codeGen(RegManager *rm) {
 	code += mi->toString();
 
 	// point tmpReg2 --> param1
-	// inst: ADD tmpReg2 3 tmpReg2, skip blank, BP, ret_addr
+	// inst: ADD tmpReg2 3 tmpReg2, skip blank, n params, BP, ret_addr
 	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
-	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 3);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 3 + p_num);
 	dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
 	ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
 	code += ai->toString();
