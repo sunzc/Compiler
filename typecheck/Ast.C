@@ -1901,9 +1901,57 @@ string RuleNode::codeGen(RegManager *rm) {
 	return code;
 }
 
+/**
+ * rule Init code will store rule label in the memory related to event name
+ * Note: we only support one letter event name, it will be used as index into
+ * memory to store rule label
+ * 1. get event name
+ * 2. calculate label address
+ * 3. store label into memory
+ */
 string RuleNode::ruleInitCode(RegManager *rm) {
-	string code;
-	// TODO
+	string code = NULL;
+	EventEntry *ee;
+	MovIns *mi;
+	Instruction::Operand *arg1, *arg2;
+	char c;
+	string eventName, ruleLabel;
+	int labelAddr;
+	int tmpReg1, tmpReg2;
+
+	ee = ((PrimitivePatNode *)(this->pat_))->event();
+	eventName = ee->name();
+	c = eventName.at(0);
+	labelAddr = EVENT_MAP_START + (int)c; 
+	ruleLabel = this->ruleLabel();
+
+	// alloc a caller-save, integer reg
+	tmpReg1 = rm->getReg(true, false);
+
+	// inst: MOVI labelAddr tmpReg1 
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, labelAddr);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+	mi = new MovIns(MovIns::MovInsType::MOVI, arg1, arg2);
+	code += mi->toString();
+
+	// alloc a caller-save, integer reg
+	tmpReg2 = rm->getReg(true, false);
+
+	// inst: MOVL ruleLabel tmpReg2
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, ruleLabel);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
+	mi = new MovIns(MovIns::MovInsType::MOVL, arg1, arg2);
+	code += mi->toString();
+
+	// inst: STI  tmpReg2 tmpReg1
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+	mi = new MovIns(MovIns::MovInsType::STI, arg1, arg2);
+	code += mi->toString();
+	
+	rm->releaseReg(tmpReg1, false);
+	rm->releaseReg(tmpReg2, false);
+
 	return code;
 }
 
