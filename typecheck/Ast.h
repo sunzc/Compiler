@@ -84,8 +84,8 @@ class AstNode: public ProgramElem {
 	labelCount ++;
 
 	return label;
-  }
-  
+  };
+
  private: 
   NodeType nodeType_;
   const AstNode* operator=(const AstNode& other); /* disable asg */
@@ -563,11 +563,17 @@ class RuleNode: public AstNode {
   void typePrint(ostream& os, int indent) const;
   string codeGen(RegManager *rm);
   string ruleInitCode(RegManager *rm);
+  string ruleLabel() { return ruleLabel_;};
+  void ruleLabel(string l) { ruleLabel_ = l;};
+
+
+
 
  private:
-  BlockEntry    *rste_;
+  BlockEntry *rste_;
   BasePatNode *pat_;
   StmtNode *reaction_;
+  string ruleLabel_;
    
   RuleNode(const RuleNode&);
 };

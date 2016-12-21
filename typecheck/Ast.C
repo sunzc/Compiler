@@ -10,6 +10,7 @@ extern int REG_BP;
 extern int REG_SP;
 extern int REG_RV;
 extern int REG_RA;
+extern int REG_RL;
 
 AstNode::AstNode(NodeType nt, int line, int column, string file):
   ProgramElem(NULL, line, column, file) {
@@ -1111,7 +1112,7 @@ string RefExprNode::codeGen(RegManager *rm) {
 	// set isFloat for this exprNode
 	this->setIsFloat(isFloat);
 
-	// inst1: MOVI offset temReg1
+	// inst1: MOVI offset tmpReg1
 	offset = ((VariableEntry *)(this->symTabEntry()))->offSet();
 	// alloc a caller-save, interger reg
 	tmpReg1 = rm->getReg(true, false);
@@ -1129,7 +1130,7 @@ string RefExprNode::codeGen(RegManager *rm) {
 		code += ai->toString();
 	}
 
-	// inst3: LDI/F temReg1 tmpReg2 
+	// inst3: LDI/F tmpReg1 tmpReg2 
 	if (isFloat) {
 		// alloc a caller-save, float reg
 		tmpReg2 = rm->getReg(true, true);
@@ -1580,6 +1581,7 @@ RuleNode::RuleNode(BlockEntry *re, BasePatNode* pat, StmtNode* reaction,
 	rste_ = re;
 	pat_ = pat;
 	reaction_ = reaction;
+	ruleLabel_ = AstNode::getLabel();
 }
 
 const Type* RuleNode::typeCheck() {
@@ -1617,9 +1619,285 @@ void RuleNode::print(ostream& os, int indent) const{
 	os << ";;" << endl;
 }
 
+/**
+ * Every rule has a ruleLabel, control flow jump from main loop to
+ * a certain ruleLabel. ruleLabel is stored in ruleNodeMap in memory.
+ * Note: We only support single event, with a single as its event name.
+ * After enter a rule, we should do the following:
+ *	1. read in params and store them onto stack
+ *	2. push bp on stack	# Note, no retaddress on stack here, retAddress store in REG_RL
+ *	3. move sp to bp 
+ *	4. load params into callee save registers # Note, no local vars
+ *	5. execute stmt.code
+ *	6. pop params
+ * 	7. pop bp
+ *	8. restore sp
+ *	9. JMP REG_RL
+ *
+ */
 string RuleNode::codeGen(RegManager *rm) {
 	string code;
-	// TODO
+	int tmpReg1, tmpReg2;
+	bool isFloat = false;
+	Instruction::Operand *arg1, *arg2, *dest;
+	MovIns *mi;
+	ArithIns *ai;
+	InputIns *ii;
+	JumpIns *ji;
+	EventEntry *ee;
+	vector<VariableEntry*>* params;
+	Type *type;
+	vector<Type *> *argTypes;
+	Type *argType;
+	int arity, i;
+	vector<int> *paramRegList = new vector<int>();
+	vector<bool> *paramRegAtrList = new vector<bool>();
+
+	// handle ruleLabel 
+	string ruleLabel = this->ruleLabel();
+	code += ruleLabel + ": "; 
+
+	// 1. read in params and store them onto stack
+	// TODO we only support PrimitivePatNode without condition
+	ee = ((PrimitivePatNode *)(this->pat_))->event();
+	params = ((PrimitivePatNode *)(this->pat_))->params();
+	type = ee->type();
+	arity = type->arity();
+	argTypes = type->argTypes();
+
+	// read in params and push paramters onto stack in order
+	for (i = 0; i < arity; i++) {
+		argType = (*argTypes)[i];
+		if (argType->tag() != Type::TypeTag::DOUBLE)
+			isFloat = false;
+		else
+			isFloat = true;
+
+		// alloc a caller-save, int/float reg
+		tmpReg1 = rm->getReg(true, isFloat);
+
+		// inst: INI/INF REG
+		if (isFloat) {
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
+			ii = new InputIns(InputIns::InputInsType::INF, arg1);
+		} else {
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+			ii = new InputIns(InputIns::InputInsType::INI, arg1);
+		}
+		code += ii->toString();
+
+
+		// inst: STI/F tmpReg1 REG_SP
+		if (isFloat) {
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+			mi = new MovIns(MovIns::MovInsType::STF, arg1, arg2);
+		} else {
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+			mi = new MovIns(MovIns::MovInsType::STI, arg1, arg2);
+		}
+		code += mi->toString();
+
+		// inst: SUB REG_SP 1 REG_SP
+		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+		dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+		ai = new ArithIns(ArithIns::ArithInsType::SUB, arg1, arg2, dest);
+		code += ai->toString();
+
+		rm->releaseReg(tmpReg1, isFloat);
+	}
+
+	// 2. push bp on stack # Note, no retaddress on stack here, retAddress store in REG_RL
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_BP);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	mi = new MovIns(MovIns::MovInsType::STI, arg1, arg2);
+	code += mi->toString();
+
+	// inst2: SUB REG_SP 1 REG_SP
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+	dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	ai = new ArithIns(ArithIns::ArithInsType::SUB, arg1, arg2, dest);
+	code += ai->toString();
+
+ 	// 3. move sp to bp 
+	// inst1: MOVI REG_SP REG_BP 
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_BP);
+	mi = new MovIns(MovIns::MovInsType::MOVI, arg1, arg2);
+	code += mi->toString();
+
+ 	// load params into callee save registers # Note, no local vars
+	// 4. However, we should first save the original value on stack
+	for (i = 0; i < arity; i++) {
+		argType = (*argTypes)[i];
+		if (argType->tag() != Type::TypeTag::DOUBLE)
+			isFloat = false;
+		else
+			isFloat = true;
+
+		// record callee-save regs alloced for param vars
+		paramRegAtrList->push_back(isFloat);
+		// alloc a callee-save, int/float reg
+		tmpReg1 = rm->getReg(false, isFloat);
+		paramRegList->push_back(tmpReg1);
+
+		// set param var tmpReg tmpReg1
+		((VariableEntry *)(*params)[i])->setTmpReg(tmpReg1);
+		((VariableEntry *)(*params)[i])->setIsFloat(isFloat);
+
+		// push allocated reg onto stack to protect their original value
+
+		// inst1: STI tmpReg1 REG_SP
+		if (isFloat) {
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+			mi = new MovIns(MovIns::MovInsType::STF, arg1, arg2);
+		} else {
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+			mi = new MovIns(MovIns::MovInsType::STI, arg1, arg2);
+		}
+		code += mi->toString();
+
+		// inst2: SUB REG_SP 1 REG_SP
+		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+		dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+		ai = new ArithIns(ArithIns::ArithInsType::SUB, arg1, arg2, dest);
+		code += ai->toString();
+	}
+
+	// 5. read param_n -> param_1 into regs
+
+	// alloc a caller-save, int reg
+	tmpReg2 = rm->getReg(true, false);
+
+	// inst: MOVI REG_BP tmpReg2
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_BP);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
+	mi = new MovIns(MovIns::MovInsType::MOVI, arg1, arg2);
+	code += mi->toString();
+
+	// point tmpReg2 --> param_n
+	// inst: ADD tmpReg2  tmpReg2, skip blank, n_params, BP
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, arity + 2);
+	dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
+	ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
+	code += ai->toString();
+
+	if (paramRegList->size() > 0) {
+		// load params into registers, in reverse way, cause on stack params push in increaing order
+		//  param1
+		//  param2
+		//  param3
+		//  bp
+		//  p1_reg
+		//  p2_reg
+		//  p3_reg
+		auto pit = paramRegList->rbegin();
+		auto pait = paramRegAtrList->rbegin();
+		while (pit != paramRegList->rend() && pait != paramRegAtrList->rend()) {
+			isFloat = (*pait);
+			tmpReg1 = (*pit);
+
+			if (isFloat) {
+				// inst: LDF tmpReg2 param_i
+				arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
+				arg2 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
+				mi = new MovIns(MovIns::MovInsType::LDF, arg1, arg2);
+			} else {
+				// inst: LDI tmpReg2 param_i
+				arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
+				arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+				mi = new MovIns(MovIns::MovInsType::LDI, arg1, arg2);
+			}
+			code += mi->toString();
+
+			// inst: ADD tmpReg2 1 tmpReg2 
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+			dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
+			ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
+			code += ai->toString();
+
+			pit++;
+			pait++;
+		}
+	}
+
+	rm->releaseReg(tmpReg2, false);
+
+	// add rule stmt code
+	code += this->reaction()->codeGen(rm);
+
+	// Note: rule has no return stmt, we have to do it ourself!
+	// 6. pop params
+	// pop param_n -> param_1(callee save)
+	if (paramRegList->size() > 0) {
+		auto rpit = paramRegList->rbegin();
+		auto rpait = paramRegAtrList->rbegin();
+		while(rpit != paramRegList->rend() && rpait != paramRegAtrList->rend()) {
+			tmpReg1 = (*rpit);
+			isFloat = (*rpait);
+
+			// pop inst: ADD REG_SP 1 REG_SP
+			arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+			arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+			dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+			ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
+			code += ai->toString();
+
+			if (isFloat) {
+				// inst: LDF tmpReg2 param_i
+				arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+				arg2 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
+				mi = new MovIns(MovIns::MovInsType::LDF, arg1, arg2);
+			} else {
+				// inst: LDI tmpReg2 param_i
+				arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+				arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+				mi = new MovIns(MovIns::MovInsType::LDI, arg1, arg2);
+			}
+			code += mi->toString();
+
+			rpit++;
+			rpait++;
+		}
+	}
+
+ 	// 7. pop bp
+	// pop inst: ADD REG_SP 1 REG_SP
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 1);
+	dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
+	code += ai->toString();
+
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_BP);
+	mi = new MovIns(MovIns::MovInsType::LDI, arg1, arg2);
+	code += mi->toString();
+
+	// 8. restore sp
+	// pop out event params
+	if (arity > 0) {
+		//inst2: SUB SP 1 SP
+		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, arity);
+		dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+		ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
+		code += ai->toString();
+	}
+
+	// 9. JMP REG_RL
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_RL);
+	ji = new JumpIns(JumpIns::JumpInsType::JMP, NULL, arg1);
+	code += ji->toString();
+
 	return code;
 }
 
@@ -1870,7 +2148,6 @@ string ReturnStmtNode::codeGen(RegManager *rm) {
 	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_RA);
 	mi = new MovIns(MovIns::MovInsType::LDI, arg1, arg2);
 	code += mi->toString();
-
 
 	// jmp to REG_RA
 	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_RA);
