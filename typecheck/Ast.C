@@ -1623,6 +1623,12 @@ string RuleNode::codeGen(RegManager *rm) {
 	return code;
 }
 
+string RuleNode::ruleInitCode(RegManager *rm) {
+	string code;
+	// TODO
+	return code;
+}
+
 void  CompoundStmtNode::typePrintWithoutBraces(ostream& os, int indent) const{
 	// Add your code
 	if (this->stmts() != NULL) {

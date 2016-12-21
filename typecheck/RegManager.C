@@ -7,6 +7,8 @@ int REG_BP = 901;
 int REG_SP = 902;
 // Return Value stored in R/F903
 int REG_RV = 903;
+// Return Label Register in MainLoop
+int REG_RL = 904;
 
 /**
  * push in-use caller-save regs, first Int Reg, then Float Reg

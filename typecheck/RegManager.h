@@ -22,6 +22,9 @@
 #define CALLEE_START	500
 #define CALLEE_END	899
 
+#define STACK_START	(1024*1024 - 1)
+#define EVENT_MAP_START	(1000)
+
 class RegManager {
  public:
   RegManager();

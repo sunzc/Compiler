@@ -10,6 +10,97 @@ extern int REG_BP;
 extern int REG_SP;
 extern int REG_RV;
 extern int REG_RA;
+extern int REG_RL;
+
+string GlobalEntry::stackInit(RegManager *rm, int stackStart) {
+	string code = "";
+	Instruction::Operand *arg1, *arg2;
+	MovIns *mi;
+
+	// inst: MOVI STACK_START REG_SP
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, stackStart);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	mi = new MovIns(MovIns::MovInsType::MOVI, arg1, arg2);
+	code += mi->toString();
+
+	// inst: MOVI REG_SP REG_BP
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_BP);
+	mi = new MovIns(MovIns::MovInsType::MOVI, arg1, arg2);
+	code += mi->toString();
+
+	return code;
+}
+
+/**
+ * workflow of mainLoop:
+ * loop_start:
+ *	1. IN R001
+ *	2. ADD R001 EVENT_MAP_START R001	# get label stored at R001 + EVENT_MAP_START
+ *	3. LDI R001 R002
+ *	5. MOVL ret_addr R904			# R904 dedicated for ret_addr here
+ *	4. JMPI R002
+ * ret_addr:
+ *	5. JMP loop_start
+ */
+string GlobalEntry::mainLoop(RegManager *rm) {
+	string code;
+	string loopStart = AstNode::getLabel();
+	string retLabel = AstNode::getLabel();
+	Instruction::Operand *arg1, *arg2, *dest;
+	ArithIns *ai;
+	MovIns *mi;
+	JumpIns *ji;
+	InputIns *ii;
+	int tmpReg1, tmpReg2;
+
+	code = loopStart + ": ";
+
+	// inst: IN tmpReg
+	// alloc a caller-save, interger reg
+	tmpReg1 = rm->getReg(true, false);
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+	ii = new InputIns(InputIns::InputInsType::IN, arg1);
+	code += ii->toString();
+
+	// inst: ADD R001 EVENT_MAP_START
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, EVENT_MAP_START);
+	dest = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+	ai = new ArithIns(ArithIns::ArithInsType::ADD, arg1, arg2, dest);
+	code += ai->toString();
+
+	// alloc a caller-save, interger reg
+	tmpReg2 = rm->getReg(true, false);
+	// inst: LDI tmpReg1 tmpReg2
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
+	mi = new MovIns(MovIns::MovInsType::LDI, arg1, arg2);
+	code += mi->toString();
+
+	// inst: MOVL ret_label REG_RL
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, retLabel);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_RL);
+	mi = new MovIns(MovIns::MovInsType::MOVL, arg1, arg2);
+	code += mi->toString();
+
+	// inst: JMPI tmpReg2
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
+	ji = new JumpIns(JumpIns::JumpInsType::JMPI, NULL, arg1);
+	code += ji->toString();
+
+	code += retLabel + ": ";
+
+	// inst: JMP loopStart
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, loopStart);
+	ji = new JumpIns(JumpIns::JumpInsType::JMP, NULL, arg1);
+	code += ji->toString();
+
+	rm->releaseReg(tmpReg1, false);
+	rm->releaseReg(tmpReg2, false);
+
+	return code;
+}
 
 string GlobalEntry::codeGen(RegManager *rm) {
 	const SymTab *st = this->symTab();
@@ -17,13 +108,20 @@ string GlobalEntry::codeGen(RegManager *rm) {
 	int offset;
 	// tempReg: reg name like "R001", "F009"
 	int tmpReg1, tmpReg2;
-	string initCode = "";
+	string globalVarInitCode = "";
 	string funcCode = "";
 	string ruleCode = "";
+	string ruleInitCode = "";
+	string stackInitCode = "";
+	string mainLoopCode = "";
 	ExprNode *initVal;
 	bool isFloat;
 	Instruction::Operand *arg1, *arg2;
 	MovIns *mi;
+
+	stackInitCode = this->stackInit(rm, STACK_START);
+
+	mainLoopCode = this->mainLoop(rm);
 
 	if (st != NULL) {
 		auto it = st->begin();
@@ -42,7 +140,7 @@ string GlobalEntry::codeGen(RegManager *rm) {
 					if (initVal == NULL)
 						continue;
 
-					initCode += initVal->codeGen(rm);
+					globalVarInitCode += initVal->codeGen(rm);
 
 					// generate initialization code for global var
 					// inst1: MOVI offset tmpReg1
@@ -52,7 +150,7 @@ string GlobalEntry::codeGen(RegManager *rm) {
 					arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, offset);
 					arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
 					mi = new MovIns(MovIns::MovInsType::MOVI, arg1, arg2);
-					initCode += mi->toString();
+					globalVarInitCode += mi->toString();
 					
 					// inst2: STI/F tmpReg2 tmpReg1
 					tmpReg2 =  initVal->getTmpReg();
@@ -68,7 +166,7 @@ string GlobalEntry::codeGen(RegManager *rm) {
 					}
 
 					rm->releaseReg(tmpReg1, false);
-					initCode += mi->toString();
+					globalVarInitCode += mi->toString();
 
 				} else {
 					// unexpected error, all global var should follow into one primitive type
@@ -90,11 +188,12 @@ string GlobalEntry::codeGen(RegManager *rm) {
 		while (i < size){
 			rn = this->rule(i);
 			ruleCode += ((RuleNode *)rn)->codeGen(rm);
+			ruleInitCode += ((RuleNode *)rn)->ruleInitCode(rm);
 			i++;
 		}
 	}
 
-	return initCode + funcCode + ruleCode;
+	return globalVarInitCode + ruleInitCode + mainLoopCode + funcCode + ruleCode;
 }
 
 void GlobalEntry::memAlloc() {

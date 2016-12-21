@@ -562,6 +562,7 @@ class RuleNode: public AstNode {
   void print(ostream& os, int indent=0) const;
   void typePrint(ostream& os, int indent) const;
   string codeGen(RegManager *rm);
+  string ruleInitCode(RegManager *rm);
 
  private:
   BlockEntry    *rste_;
