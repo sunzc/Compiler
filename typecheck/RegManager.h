@@ -22,7 +22,7 @@
 #define CALLEE_START	500
 #define CALLEE_END	899
 
-#define STACK_START	(1024*100)
+#define STACK_START	(10000)
 #define EVENT_MAP_START	(1000)
 #define DATA_START	(2000)
 
