@@ -36,9 +36,10 @@ string GlobalEntry::stackInit(RegManager *rm, int stackStart) {
  * workflow of mainLoop:
  * loop_start:
  *	1. IN R001
-	JMPC GT R001 0 endOfCode
+	JMPC GT 0 R001 endOfCode
  *	2. ADD R001 EVENT_MAP_START R001	# get label stored at R001 + EVENT_MAP_START
  *	3. LDI R001 R002
+	JMPC EQ R002 0 endOfCode
  *	5. MOVL ret_addr R904			# R904 dedicated for ret_addr here
  *	4. JMPI R002
  * ret_addr:
@@ -66,8 +67,8 @@ string GlobalEntry::mainLoop(RegManager *rm, string endOfCode) {
 	ii = new InputIns(InputIns::InputInsType::IN, arg1);
 	code += ii->toString();
 
-	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
-	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 0);
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 0);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
 	roi = new RelOpIns(RelOpIns::RelOpInsType::GT, arg1, arg2);
 
 	dest = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, endOfCode);
@@ -88,6 +89,14 @@ string GlobalEntry::mainLoop(RegManager *rm, string endOfCode) {
 	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
 	mi = new MovIns(MovIns::MovInsType::LDI, arg1, arg2);
 	code += mi->toString();
+
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 0);
+	roi = new RelOpIns(RelOpIns::RelOpInsType::EQ, arg1, arg2);
+
+	dest = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, endOfCode);
+	ji = new JumpIns(JumpIns::JumpInsType::JMPC,roi,dest);
+	code += ji->toString();
 
 	// inst: MOVL ret_label REG_RL
 	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, retLabel);
@@ -126,6 +135,11 @@ string GlobalEntry::codeGen(RegManager *rm) {
 	string ruleInitCode = "// rule init code\n";
 	string stackInitCode = "// stack init code\n";
 	string mainLoopCode = "// main loop code\n";
+	string eraseEventTable = "MOV 0 R000\n"
+				 "MOV 1000 R001\n"
+				 "loop: STI R000 R001\n"
+				 "ADD 1 R001 R001\n"
+				 "JMPC GE 1255 R001 loop";
 	ExprNode *initVal;
 	bool isFloat;
 	Instruction::Operand *arg1, *arg2;
@@ -213,7 +227,7 @@ string GlobalEntry::codeGen(RegManager *rm) {
 		}
 	}
 
-	return helpInfo + stackInitCode + globalVarInitCode + ruleInitCode + mainLoopCode + funcCode + ruleCode + endOfCode + ": ADD R000 1 R000\n";
+	return helpInfo + stackInitCode + globalVarInitCode + eraseEventTable + ruleInitCode + mainLoopCode + funcCode + ruleCode + endOfCode + ": ADD R000 1 R000\n";
 }
 
 void GlobalEntry::memAlloc() {

@@ -45,6 +45,7 @@ class Instruction {
 		int i_val() const { return i_val_;};
 		float f_val() const { return f_val_;};
 		std::string s_val() const { return s_val_;};
+		OperandType type() { return ot_;};
 		std::string reg_name(int i) const{
 			std::string name;
 
