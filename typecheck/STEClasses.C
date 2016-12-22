@@ -135,8 +135,8 @@ string GlobalEntry::codeGen(RegManager *rm) {
 	string ruleInitCode = "// rule init code\n";
 	string stackInitCode = "// stack init code\n";
 	string mainLoopCode = "// main loop code\n";
-	string eraseEventTable = "MOV 0 R000\n"
-				 "MOV 1000 R001\n"
+	string eraseEventTable = "MOVI 0 R000\n"
+				 "MOVI 1000 R001\n"
 				 "loop: STI R000 R001\n"
 				 "ADD 1 R001 R001\n"
 				 "JMPC GE 1255 R001 loop";
