@@ -162,7 +162,7 @@ void E_RT_init(int argc, char* argv[]) {
       fprintf(stderr, "Unable to protect memory, exiting\n");
       exit(1);
    }
-   mem = mem+m2;
+   mem = mem+m2/4;
 }
 
 void E_RT_exit() {
