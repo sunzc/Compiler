@@ -966,12 +966,16 @@ string OpNode::codeGen(RegManager *rm) {
 
 			// print int/str here
 			if (op1->type() == NULL) {
-				cout << "Debug OpNode::codeGen integer case print case, op1->type() null, "<<endl;
-				pi = new PrintIns(PrintIns::PrintInsType::PRTS, arg1);
+				if (op1->typeCheck()->tag() == Type::TypeTag::INT)
+					pi = new PrintIns(PrintIns::PrintInsType::PRTI, arg1);
+				else
+					pi = new PrintIns(PrintIns::PrintInsType::PRTF, arg1);
 			} else if (op1->type()->tag() == Type::TypeTag::STRING)
 				pi = new PrintIns(PrintIns::PrintInsType::PRTS, arg1);
+			else if (op1->type()->tag() == Type::TypeTag::INT)
+					pi = new PrintIns(PrintIns::PrintInsType::PRTI, arg1);
 			else
-				pi = new PrintIns(PrintIns::PrintInsType::PRTI, arg1);
+				pi = new PrintIns(PrintIns::PrintInsType::PRTF, arg1);
 
 			cout << "Debug OpNode::codeGen integer case print case before toString" <<endl;
 
