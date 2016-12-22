@@ -1641,6 +1641,7 @@ string InvocationNode::codeGen(RegManager *rm) {
 	}
 
 	// before function call, push caller-save register
+	code += "// pushCallerSaveRegs\n";
 	code +=  rm->pushCallerSaveRegs();
 
 	// pass parameters via stack in reverse order
@@ -1723,6 +1724,7 @@ string InvocationNode::codeGen(RegManager *rm) {
 	}
 
 	// after function call recover caller-save registes
+	code += "// popCallerSaveRegs\n";
 	code +=  rm->popCallerSaveRegs();
 
 	// if return type is not VOID keep return value
@@ -2135,8 +2137,8 @@ string RuleNode::codeGen(RegManager *rm) {
 	// alloc a caller-save, int reg
 	tmpReg2 = rm->getReg(true, false);
 
-	// inst: MOVI REG_BP tmpReg2
-	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_BP);
+	// inst: MOVI REG_SP tmpReg2
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, REG_SP);
 	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
 	mi = new MovIns(MovIns::MovInsType::MOVI, arg1, arg2);
 	code += mi->toString();

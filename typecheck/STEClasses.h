@@ -40,7 +40,7 @@ class GlobalEntry: public SymTabEntry {
   RegManager *regManager() { return rm_;};
   void regManager(RegManager *rm) { rm_ = rm;};
   string stackInit(RegManager *rm, int stackStartAddr);
-  string mainLoop(RegManager *rm);
+  string mainLoop(RegManager *rm, string label);
 
  private:
   vector<RuleNode*> rules_;

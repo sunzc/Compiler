@@ -36,20 +36,23 @@ string GlobalEntry::stackInit(RegManager *rm, int stackStart) {
  * workflow of mainLoop:
  * loop_start:
  *	1. IN R001
+	JMPC GT 0 R001 endOfCode
  *	2. ADD R001 EVENT_MAP_START R001	# get label stored at R001 + EVENT_MAP_START
  *	3. LDI R001 R002
  *	5. MOVL ret_addr R904			# R904 dedicated for ret_addr here
  *	4. JMPI R002
  * ret_addr:
  *	5. JMP loop_start
+ * endOfCode:
  */
-string GlobalEntry::mainLoop(RegManager *rm) {
+string GlobalEntry::mainLoop(RegManager *rm, string endOfCode) {
 	string code;
 	string loopStart = AstNode::getLabel();
 	string retLabel = AstNode::getLabel();
 	Instruction::Operand *arg1, *arg2, *dest;
 	ArithIns *ai;
 	MovIns *mi;
+	RelOpIns *roi;
 	JumpIns *ji;
 	InputIns *ii;
 	int tmpReg1, tmpReg2;
@@ -62,6 +65,14 @@ string GlobalEntry::mainLoop(RegManager *rm) {
 	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
 	ii = new InputIns(InputIns::InputInsType::IN, arg1);
 	code += ii->toString();
+
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 0);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+	roi = new RelOpIns(RelOpIns::RelOpInsType::GT, arg1, arg2);
+
+	dest = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, endOfCode);
+	ji = new JumpIns(JumpIns::JumpInsType::JMPC,roi,dest);
+	code += ji->toString();
 
 	// inst: ADD R001 EVENT_MAP_START
 	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
@@ -120,11 +131,14 @@ string GlobalEntry::codeGen(RegManager *rm) {
 	Instruction::Operand *arg1, *arg2;
 	MovIns *mi;
 
+	string endOfCode = AstNode::getLabel();
+
 	std::cout<<"Debug: before stackInitCode"<<std::endl;
 	stackInitCode += this->stackInit(rm, STACK_START);
 
 	std::cout<<"Debug: before mainLoop"<<std::endl;
-	mainLoopCode += this->mainLoop(rm);
+	mainLoopCode += this->mainLoop(rm, endOfCode);
+
 
 	if (st != NULL) {
 		auto it = st->begin();
@@ -199,7 +213,7 @@ string GlobalEntry::codeGen(RegManager *rm) {
 		}
 	}
 
-	return helpInfo + stackInitCode + globalVarInitCode + ruleInitCode + mainLoopCode + funcCode + ruleCode;
+	return helpInfo + stackInitCode + globalVarInitCode + ruleInitCode + mainLoopCode + funcCode + ruleCode + endOfCode + ": ADD R000 1 R000\n";
 }
 
 void GlobalEntry::memAlloc() {
