@@ -189,7 +189,7 @@ std::string PrintIns::toString(){
 			break;
 	}
 
-	if (pit_ == PrintInsType::PRTS)
+	if (pit_ == PrintInsType::PRTS && arg1_->type() == Instruction::Operand::OperandType::STR_CONST)
 		inst += "\"" + arg1_->toString() + "\"" + "\n";
 	else
 		inst += arg1_->toString() + "\n";
