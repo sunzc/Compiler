@@ -13,20 +13,30 @@
     string s1="aaaa";
     string s2="bbbb";	 
 
+    int fab1(int i){ 
+	int a = 3;
+	int b = 4;
+	int c;
+	c = a + b + i;
+	return c;
+	};
 
     int add(int a, int b) { return a+b;};
     double minus_d_val(double x) { return -x;};
 
-    string test_str_print(string a, string b) { print a; return b;}
+    string test_str_print(string a, string b) {  return b;}
 
     a(i_val, d_val) -> {
                      
-	test_str_print(s1, s2);
+//	test_str_print(s1, s2);
 	d = minus_d_val(d);
-	print d;
+//	print d;
 
+	print "fab1 = ";
+	print fab1(2);
+	print "\\n";
 	m = add(i,j);
-	print m;
+//	print m;
 
 	print "test print d_val\\n";
 	print d_val;
