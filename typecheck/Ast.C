@@ -481,7 +481,7 @@ string OpNode::codeGen(RegManager *rm) {
 	const SymTabEntry *ste;
 	bool error = false;
 
-	cout << "Debug OpNode::codeGen" <<endl;
+//	cout << "Debug OpNode::codeGen" <<endl;
 
 	// inherit existing code
 	arity = this->arity();
@@ -511,7 +511,7 @@ string OpNode::codeGen(RegManager *rm) {
 		tmpReg2 = -1;
 
 	if (isFloat) {
-		cout << "Debug OpNode::codeGen float case" <<endl;
+//		cout << "Debug OpNode::codeGen float case" <<endl;
 		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg1);
 		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::FLOAT_REG, tmpReg2);
 
@@ -720,16 +720,16 @@ string OpNode::codeGen(RegManager *rm) {
 		if (error)
 			return "";
 	} else {
-		cout << "Debug OpNode::codeGen integer case1" <<endl;
+//		cout << "Debug OpNode::codeGen integer case1" <<endl;
 		arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
 		arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg2);
 
-		cout << "Debug OpNode::codeGen integer case2" <<endl;
+//		cout << "Debug OpNode::codeGen integer case2" <<endl;
 
 		if ((opcode >= OpNode::OpCode::UMINUS && opcode <= OpNode::OpCode::MOD) ||
 			(opcode >= OpNode::OpCode::BITNOT && opcode <= OpNode::OpCode::SHR)) {
 
-			cout << "Debug OpNode::codeGen integer case arith" <<endl;
+//			cout << "Debug OpNode::codeGen integer case arith" <<endl;
 
 			// alloc a caller-save, int reg
 			destReg = rm->getReg(true, false);
@@ -822,7 +822,7 @@ string OpNode::codeGen(RegManager *rm) {
 			 *		8. 	...
 			 */
 
-			cout << "Debug OpNode::codeGen integer case relOp case" <<endl;
+//			cout << "Debug OpNode::codeGen integer case relOp case" <<endl;
 
 			switch(opcode) {
 				case OpNode::OpCode::EQ:
@@ -906,7 +906,7 @@ string OpNode::codeGen(RegManager *rm) {
 			 *		5. 	movi 1 resReg	# in assign truth value always be 1
 			 */
 
-			cout << "Debug OpNode::codeGen integer case assign case" <<endl;
+//			cout << "Debug OpNode::codeGen integer case assign case" <<endl;
 
 			ste = ((RefExprNode *)op1)->symTabEntry();
 			// inst1: MOVI offset tmpReg1
@@ -962,22 +962,30 @@ string OpNode::codeGen(RegManager *rm) {
 			 *		2.	chose pri/f/s depends on expr.type
 			 */
 
-			cout << "Debug OpNode::codeGen integer case print case" <<endl;
+//			cout << "Debug OpNode::codeGen integer case print case" <<endl;
 
 			// print int/str here
-			if (op1->type() == NULL) {
+			if (op1->typeCheck() != NULL) {
 				if (op1->typeCheck()->tag() == Type::TypeTag::STRING)
 					pi = new PrintIns(PrintIns::PrintInsType::PRTS, arg1);
 				else
 					pi = new PrintIns(PrintIns::PrintInsType::PRTI, arg1);
-			} else if (op1->type()->tag() == Type::TypeTag::STRING)
-				pi = new PrintIns(PrintIns::PrintInsType::PRTS, arg1);
-			else 
-				pi = new PrintIns(PrintIns::PrintInsType::PRTI, arg1);
+				code += pi->toString();
+			} else
+				cout<<"op1 type is null"<<endl;
+//			if (op1->type() == NULL) {
+//				cout<<"op1 type is null"<<endl;
+//				if (op1->typeCheck()->tag() == Type::TypeTag::STRING)
+//					pi = new PrintIns(PrintIns::PrintInsType::PRTS, arg1);
+//				else
+//					pi = new PrintIns(PrintIns::PrintInsType::PRTI, arg1);
+//			} else if (op1->type()->tag() == Type::TypeTag::STRING)
+//				pi = new PrintIns(PrintIns::PrintInsType::PRTS, arg1);
+//			else 
+//				pi = new PrintIns(PrintIns::PrintInsType::PRTI, arg1);
 
-			cout << "Debug OpNode::codeGen integer case print case before toString" <<endl;
+//			cout << "Debug OpNode::codeGen integer case print case before toString" <<endl;
 
-			code += pi->toString();
 
 			// TODO
 			// PRINT should be stand alone stmt
@@ -992,7 +1000,7 @@ string OpNode::codeGen(RegManager *rm) {
 		if(error)
 			return "";
 
-		cout << "Debug OpNode::codeGen integer case done" <<endl;
+//		cout << "Debug OpNode::codeGen integer case done" <<endl;
 	}
 
 	return code;
@@ -1420,13 +1428,13 @@ string RefExprNode::codeGen(RegManager *rm) {
 	MovIns *mi;
 	ArithIns *ai;
 
-	cout <<"Debug RefExprNode::codeGen"<<endl;
+//	cout <<"Debug RefExprNode::codeGen"<<endl;
 
 	// for parameter var, just set reg and isFloat, and return. param already loaded into reg when init function
  	if (((VariableEntry *)(this->symTabEntry()))->varKind() == VariableEntry::VarKind::PARAM_VAR &&
 		ctype == NULL) {
 
-		cout <<"Debug RefExprNode::codeGen param_var"<<endl;
+//		cout <<"Debug RefExprNode::codeGen param_var"<<endl;
 
 		this->setIsFloat(((VariableEntry *)(this->symTabEntry()))->isFloat());
 		this->setTmpReg(((VariableEntry *)(this->symTabEntry()))->getTmpReg());
@@ -1506,7 +1514,7 @@ string RefExprNode::codeGen(RegManager *rm) {
 	code += mi->toString();
 	rm->releaseReg(tmpReg1, false);
 
-	cout <<"Debug RefExprNode::codeGen before leave"<<endl;
+//	cout <<"Debug RefExprNode::codeGen before leave"<<endl;
 
 	// set tmp reg for exprNode
 	this->setTmpReg(tmpReg2);
@@ -2420,14 +2428,14 @@ string CompoundStmtNode::codeGen(RegManager *rm) {
 
 	auto it = stmts->begin();
 
-	cout<<"Debug: CompoundStmtNode before call stmt->codeGen"<<endl;
+//	cout<<"Debug: CompoundStmtNode before call stmt->codeGen"<<endl;
 
 	for (;it != stmts->end(); ++it) {
 		if ((*it) != NULL)
 			code += (*it)->codeGen(rm);
 	}
 
-	cout<<"Debug: CompoundStmtNode before leave"<<endl;
+//	cout<<"Debug: CompoundStmtNode before leave"<<endl;
 
 	return code;
 }
@@ -2477,7 +2485,7 @@ string ReturnStmtNode::codeGen(RegManager *rm) {
 	vector<bool> * paramRegAtrList = fun_->paramRegAtrList();
 	int localVarNum;
 
-	cout <<"Debug: ReturnStmtNode before check expr_"<<endl;
+//	cout <<"Debug: ReturnStmtNode before check expr_"<<endl;
  	// 0. calcualte ret_val
 	// inst1: MOVI/F regTmp REG_RV
 	if (expr_ != NULL) {
@@ -2499,7 +2507,7 @@ string ReturnStmtNode::codeGen(RegManager *rm) {
 			rm->releaseReg(tmpReg1, isFloat);
 	}
 
-	cout <<"Debug: ReturnStmtNode before pop params"<<endl;
+//	cout <<"Debug: ReturnStmtNode before pop params"<<endl;
 	// 2. pop param_n -> param_1(callee save)
 	if (paramRegList->size() > 0) {
 		auto rpit = paramRegList->rbegin();
@@ -2533,7 +2541,7 @@ string ReturnStmtNode::codeGen(RegManager *rm) {
 		}
 	}
 
-	cout <<"Debug: ReturnStmtNode before restore sp"<<endl;
+//	cout <<"Debug: ReturnStmtNode before restore sp"<<endl;
 
 	// restore RSP : SP += #local_vars + 1
 	localVarNum = fun_->localVarNum();
