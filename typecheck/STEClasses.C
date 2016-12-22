@@ -36,7 +36,7 @@ string GlobalEntry::stackInit(RegManager *rm, int stackStart) {
  * workflow of mainLoop:
  * loop_start:
  *	1. IN R001
-	JMPC GT 0 R001 endOfCode
+	JMPC GT R001 0 endOfCode
  *	2. ADD R001 EVENT_MAP_START R001	# get label stored at R001 + EVENT_MAP_START
  *	3. LDI R001 R002
  *	5. MOVL ret_addr R904			# R904 dedicated for ret_addr here
@@ -66,8 +66,8 @@ string GlobalEntry::mainLoop(RegManager *rm, string endOfCode) {
 	ii = new InputIns(InputIns::InputInsType::IN, arg1);
 	code += ii->toString();
 
-	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 0);
-	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+	arg1 = new Instruction::Operand(Instruction::Operand::OperandType::INT_REG, tmpReg1);
+	arg2 = new Instruction::Operand(Instruction::Operand::OperandType::INT_CONST, 0);
 	roi = new RelOpIns(RelOpIns::RelOpInsType::GT, arg1, arg2);
 
 	dest = new Instruction::Operand(Instruction::Operand::OperandType::STR_CONST, endOfCode);
@@ -133,10 +133,10 @@ string GlobalEntry::codeGen(RegManager *rm) {
 
 	string endOfCode = AstNode::getLabel();
 
-	std::cout<<"Debug: before stackInitCode"<<std::endl;
+//	std::cout<<"Debug: before stackInitCode"<<std::endl;
 	stackInitCode += this->stackInit(rm, STACK_START);
 
-	std::cout<<"Debug: before mainLoop"<<std::endl;
+//	std::cout<<"Debug: before mainLoop"<<std::endl;
 	mainLoopCode += this->mainLoop(rm, endOfCode);
 
 
@@ -148,7 +148,7 @@ string GlobalEntry::codeGen(RegManager *rm) {
 				continue;
 			}
 
-			std::cout<<"Debug: inwhile loop before var gencode ,var:"<<(*it)->name()<<std::endl;
+//			std::cout<<"Debug: inwhile loop before var gencode ,var:"<<(*it)->name()<<std::endl;
 			if ((*it)->kind() == SymTabEntry::Kind::VARIABLE_KIND) {
 				assert(((VariableEntry *)(*it))->varKind() == VariableEntry::VarKind::GLOBAL_VAR);
 
@@ -525,7 +525,7 @@ string FunctionEntry::codeGen(RegManager *rm) {
 	vector<int> *paramRegList = new vector<int>();
 	vector<bool> *paramRegAtrList = new vector<bool>();
 
-	cout<<"Debug in Func::codeGen, func name:"<<this->name()<<endl;
+//	cout<<"Debug in Func::codeGen, func name:"<<this->name()<<endl;
 
 	// handle funcLabel
 	string funcLabel = this->getFuncLabel();
